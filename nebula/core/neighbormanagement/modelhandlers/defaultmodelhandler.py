@@ -38,7 +38,7 @@ class DefaultModelHandler(ModelHandler):
         Returns:
             model with default weights
         """
-        (sm, rounds, round) = await self._nm.engine.cm.propagator.get_model_information(None, "initialization")
+        (sm, rounds, round) = await self._nm.engine.cm.propagator.get_model_information(None, "initialization", init=True)
         return (sm, rounds, round, self.epochs)
 
     def pre_process_model(self):
