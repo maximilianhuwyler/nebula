@@ -2,7 +2,9 @@ import asyncio
 import logging
 
 from nebula.core.utils.locker import Locker
-from nebula.core.neighbormanagement.nodemanager import NodeManager
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from nebula.core.neighbormanagement.nodemanager import NodeManager
 
 VANILLA_LEARNING_RATE = 1e-3
 FR_LEARNING_RATE = 2e-3
@@ -13,7 +15,7 @@ class FastReboot():
     
     def __init__(
         self,  
-        node_manager : NodeManager,
+        node_manager : "NodeManager",
         max_rounds_application = MAX_ROUNDS,                    # Max rounds to be applied FastReboot
         weight_modifier = DEFAULT_WEIGHT_MODIFIER,
         default_learning_rate = VANILLA_LEARNING_RATE,          # Stable value for learning rate
@@ -31,9 +33,7 @@ class FastReboot():
         self._weight_modifier_lock = Locker(name="weight_modifier_lock", async_lock=True)
         self._rounds_pushed_lock = Locker(name="rounds_pushed_lock", async_lock=True)
         self._rounds_pushed = 0
-         
-        
-        
+            
     @property
     def nm(self):
         return self._node_manager
@@ -43,7 +43,7 @@ class FastReboot():
         self.rounds_pushed = rp
         await self._rounds_pushed_lock.release_async()
     
-    async def get_learning_rate_increase(self):
+    async def get_current_learning_rate(self):
         await self._learning_rate_lock.acquire_async()
         lr = self._current_lr
         await self._learning_rate_lock.release_async()
@@ -61,6 +61,7 @@ class FastReboot():
             logging.info(f"📝 Registering | FastReboot registered for source {addr} | round application: {self._max_rounds} | multiplier value: {wm}")
             self._weight_modifier[addr] = (wm,0)
             await self._set_learning_rate(self._upgrade_lr)
+            await self.nm.update_learning_rate(await self.get_current_learning_rate())
         self._weight_modifier_lock.release()
         
     async def _remove_weight_modifier(self, addr):

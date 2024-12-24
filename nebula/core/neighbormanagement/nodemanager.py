@@ -23,7 +23,7 @@ class NodeManager():
         model_handler,
         push_acceleration,
         engine : "Engine",
-        fastreboot = False
+        fastreboot=False,
     ):
         self.topology = topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -210,7 +210,8 @@ class NodeManager():
         self.neighbor_policy.update_neighbors(node, remove)
         #self.timer_generator.update_node(node, remove)
         if remove:
-            self.remove_weight_modifier(node)
+            pass #TODO
+            #self.remove_weight_modifier(node)
         if not remove:
             self.neighbor_policy.meet_node(node)
     
@@ -228,7 +229,7 @@ class NodeManager():
         if not self.accept_candidates_lock.locked():
             logging.info(f"🔄 Processing offer from {source}...")
             model_accepted = self.model_handler.accept_model(decoded_model)
-            self.model_handler.set_config(config=(rounds, round, epochs))
+            self.model_handler.set_config(config=(rounds, round, epochs, self))
             if model_accepted:      
                 self.candidate_selector.add_candidate((source, n_neighbors, loss))
                 return True
