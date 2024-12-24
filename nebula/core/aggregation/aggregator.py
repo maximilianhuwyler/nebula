@@ -288,7 +288,7 @@ class Aggregator(ABC):
                         if push == "slow":
                             logging.info(f"❗️ FUTURE round: {further_round} is available | PUSH strategy ON")
                             logging.info("❗️ SLOW push selected | Start PUSHING slow")    
-                            self.engine.set_pushed_done(further_round - self.engine.get_round())
+                            await self.engine.set_pushed_done(further_round - self.engine.get_round())
                             # we wait until learning cycle reach aggregation point
                             while not self._aggregation_done_lock.locked_async():
                                 logging.info("🔄 Waiting | aggregation step not reached yet...")
@@ -306,7 +306,7 @@ class Aggregator(ABC):
                     
                     if further_round == (self.engine.get_round()+1):
                         logging.info(f"🔄 Rounds jumped: {1}...")
-                        self.engine.set_pushed_done(further_round - self.engine.get_round())
+                        await self.engine.set_pushed_done(further_round - self.engine.get_round())
                         # we wait until learning cycle reach aggregation point
                         while not self._aggregation_done_lock.locked_async():
                             logging.info("🔄 Waiting | aggregation step not reached yet...")
@@ -345,7 +345,7 @@ class Aggregator(ABC):
                             
                     self.engine.update_sinchronized_status(False)
                     self.engine.set_synchronizing_rounds(True)
-                    self.engine.set_pushed_done(further_round - self.engine.get_round())
+                    await self.engine.set_pushed_done(further_round - self.engine.get_round())
                     self.engine.set_round(further_round)
                     
                     # Unlock aggregation

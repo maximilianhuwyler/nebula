@@ -12,7 +12,7 @@ class ModelHandler(ABC):
         pass
     
     @abstractmethod 
-    def get_model(self, model):
+    async def get_model(self, model):
         pass
 
     @abstractmethod
@@ -22,9 +22,11 @@ class ModelHandler(ABC):
 def factory_ModelHandler(model_handler) -> ModelHandler:
     from nebula.core.neighbormanagement.modelhandlers.stdmodelhandler import STDModelHandler
     from nebula.core.neighbormanagement.modelhandlers.aggmodelhandler import AGGModelHandler
+    from nebula.core.neighbormanagement.modelhandlers.defaultmodelhandler import DefaultModelHandler
     
     options = {
         "std": STDModelHandler,
+        "default": DefaultModelHandler,
         "aggregator": AGGModelHandler,
     } 
     

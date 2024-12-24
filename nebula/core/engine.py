@@ -158,7 +158,7 @@ class Engine:
         if self.mobility == True:
             topology = self.config.participant["mobility_args"]["topology_type"]
             topology = topology.lower()
-            model_handler = "std" #self.config.participant["mobility_args"]["model_handler"]
+            model_handler = "default" #self.config.participant["mobility_args"]["model_handler"]
             acceleration_push = "slow" #self.config.participant["mobility_args"]["push_strategy"]
             self._node_manager = NodeManager(topology, model_handler, acceleration_push, engine=self)
         
@@ -395,7 +395,6 @@ class Engine:
             await self.nm.confirmation_received(source, confirmation=True)          
         elif self.nm.accept_connection(source, joining=True):
             logging.info(f"🔗  handle_connection_message | Late connection accepted | source: {source}") 
-            await self.nm.add_weight_modifier(source) 
             await self.cm.connect(source, direct=True)
             
             # Verify conenction is accepted
@@ -413,10 +412,8 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg) 
 
-            self.nm.meet_node(source)
-            self.nm.update_neighbors(source)
-            if self.nm.fast_reboot_on:
-                await self.update_model_learning_rate()
+            self.nm.register_late_neighbor(source, joinning_federation=True)
+            
         else:
             logging.info(f"❗️  Late connection NOT accepted | source: {source}") 
 
@@ -445,8 +442,8 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg)
                
-            self.nm.meet_node(source)
-            self.nm.update_neighbors(source)      
+            self.nm.register_late_neighbor(source, joinning_federation=False)    
+              
         else:
             logging.info(f"❗️  handle_connection_message | Trigger | restructure connection denied from {source}")
             await asyncio.sleep(1)
@@ -458,7 +455,7 @@ class Engine:
         #self.nm.meet_node(source)
         if len(self.get_federation_nodes()) > 0:
             await self.trainning_in_progress_lock.acquire_async()
-            model, rounds, round = await self.cm.propagator.get_model_information(source, "initialization") if self.get_round() > 0 else await self.cm.propagator.get_model_information(source, "initialization")
+            model, rounds, round = await self.cm.propagator.get_model_information(source, "stable") if self.get_round() > 0 else await self.cm.propagator.get_model_information(source, "initialization")
             await self.trainning_in_progress_lock.release_async()
             if round != -1:
                 epochs = self.config.participant["training_args"]["epochs"]
@@ -560,8 +557,8 @@ class Engine:
     def get_push_acceleration(self):
         return self.nm.get_push_acceleration()
     
-    def set_pushed_done(self, rounds_push):
-        self.nm.set_rounds_pushed(rounds_push)
+    async def set_pushed_done(self, rounds_push):
+        await self.nm.set_rounds_pushed(rounds_push)
     
     async def apply_weight_strategy(self, pending_models):
         if self.mobility and self.nm.fast_reboot_on():
@@ -581,7 +578,7 @@ class Engine:
     async def _start_learning_late(self):
         await self.learning_cycle_lock.acquire_async()
         try:
-            model_serialized, rounds, round, _epochs = self.nm.get_trainning_info()
+            model_serialized, rounds, round, _epochs = await self.nm.get_trainning_info()
             self.total_rounds = rounds # self.config.participant["scenario_args"]["rounds"] #rounds
             epochs = _epochs # self.config.participant["training_args"]["epochs"] #_epochs     
             await self.get_round_lock().acquire_async()

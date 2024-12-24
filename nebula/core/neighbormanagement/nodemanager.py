@@ -1,8 +1,6 @@
 import asyncio
 import logging
 import os
-import asyncio
-import threading
 
 from nebula.core.utils.locker import Locker
 from nebula.core.neighbormanagement.candidateselection.candidateselector import factory_CandidateSelector
@@ -10,14 +8,12 @@ from nebula.core.neighbormanagement.modelhandlers.modelhandler import factory_Mo
 from nebula.core.neighbormanagement.neighborpolicies.neighborpolicy import factory_NeighborPolicy
 from nebula.core.pb import nebula_pb2
 from nebula.core.network.communications import CommunicationsManager
+from nebula.core.neighbormanagement.fastreboot import FastReboot
 from nebula.addons.functions import print_msg_box
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from nebula.core.engine import Engine
-
-VANILLA_LEARNING_RATE = 1e-3
-FT_LEARNING_RATE = 2e-3
 
 class NodeManager():
     
@@ -26,7 +22,8 @@ class NodeManager():
         topology,
         model_handler,
         push_acceleration,
-        engine : "Engine"
+        engine : "Engine",
+        fastreboot = False
     ):
         self.topology = topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -42,9 +39,6 @@ class NodeManager():
         self.late_connection_process_lock = Locker(name="late_connection_process_lock")
         self.pending_confirmation_from_nodes = []
         self.pending_confirmation_from_nodes_lock = Locker(name="pending_confirmation_from_nodes_lock")
-        self.weight_modifier = {}
-        self.weight_modifier_lock = Locker(name="weight_modifier_lock")
-        self.new_node_weight_multiplier = 3
         self.accept_candidates_lock = Locker(name="accept_candidates_lock")
         self.recieve_offer_timer = 5
         self._restructure_process_lock = Locker(name="restructure_process_lock")
@@ -52,15 +46,13 @@ class NodeManager():
         self.discarded_offers_addr_lock = Locker(name="discarded_offers_addr_lock")
         self.discarded_offers_addr = [] 
         self._push_acceleration = push_acceleration
-        self.rounds_pushed_lock = Locker(name="rounds_pushed_lock")
-        self.rounds_pushed = 0
         
         self.synchronizing_rounds = False
         
-        self._fast_reboot = False
-        self._learning_rate = VANILLA_LEARNING_RATE
-        self.learning_rate_lock =  Locker(name="learning_rate_lock", async_lock=True)
-        
+        self._fast_reboot_status = fastreboot
+        if (fastreboot):
+            self._fastreboot = FastReboot(self)
+                 
         #self.set_confings()
 
     @property
@@ -79,14 +71,12 @@ class NodeManager():
     def model_handler(self):
         return self._model_handler
     
-    async def get_learning_rate_increase(self):
-        await self.learning_rate_lock.acquire_async()
-        lr = self._learning_rate
-        await self.learning_rate_lock.release_async()
-        return lr
+    @property
+    def fr(self):
+        return self._fastreboot
     
     def fast_reboot_on(self):
-        return self._fast_reboot
+        return self._fast_reboot_status
     
     def get_push_acceleration(self):
         return self._push_acceleration
@@ -100,14 +90,9 @@ class NodeManager():
     def get_syncrhonizing_rounds(self):
         return self.synchronizing_rounds    
     
-    def set_rounds_pushed(self, rp):
-        with self.rounds_pushed_lock:
-            self.rounds_pushed = rp
-    
-    async def _set_learning_rate(self, lr):
-        await self.learning_rate_lock.acquire_async()
-        self._learning_rate = lr
-        await self.learning_rate_lock.release_async()
+    async def set_rounds_pushed(self, rp):
+        if self.fast_reboot_on():
+            self.fr.set_rounds_pushed(rp)
     
     def still_waiting_for_candidates(self):
         return not self.accept_candidates_lock.locked()
@@ -150,72 +135,25 @@ class NodeManager():
   
 
                                                         ##############################
-                                                        #       WEIGHT STRATEGY      #
+                                                        #         FAST REBOOT        #
                                                         ##############################
-
-    async def add_weight_modifier(self, addr):
-        if not self.fast_reboot_on():
-            return
-        self.weight_modifier_lock.acquire()
-        if not addr in self.weight_modifier:
-            wm = self.new_node_weight_multiplier 
-            logging.info(f"📝 Registering | Weight modifier registered for source {addr} | round: {self.engine.get_round()} | value: {wm}")
-            self.weight_modifier[addr] = (wm,1)
-            await self._set_learning_rate(FT_LEARNING_RATE)
-        self.weight_modifier_lock.release()
-    
-    def remove_weight_modifier(self, addr):
-        if addr in self.weight_modifier:
-            logging.info(f"📝 Removing | weight modifier registered for source {addr}")
-            del self.weight_modifier[addr]
-    
+                                                        
+                                                        
+    async def update_learning_rate(self, new_lr):
+        await self.engine.update_model_learning_rate(new_lr)
+        
+    async def register_late_neighbor(self, addr, joinning_federation=False):
+        self.meet_node(addr)
+        self.update_neighbors(addr)
+        if joinning_federation:
+            if self.fast_reboot_on():
+                self.fr.add_fastReboot_addr(addr)
+                                                                              
     async def apply_weight_strategy(self, updates: dict):
         if not self.fast_reboot_on():
             return
-        logging.info(f"🔄  Applying weight Strategy...")
-        # We must lower the weight_modifier value if a round jump has been occured
-        # as many times as rounds have been jumped
-        if self.rounds_pushed:
-            logging.info(f"🔄  There are rounds being pushed...")
-            for i in range(0, self.rounds_pushed):
-                logging.info(f"🔄  Update | weights being updated cause of push...")
-                self._update_weight_modifiers()
-            self.rounds_pushed = 0  
-        for addr,update in updates.items():
-            weightmodifier, rounds = self._get_weight_modifier(addr)
-            if weightmodifier != 1:
-                logging.info (f"📝 Appliying modified weight strategy | addr: {addr} | multiplier value: {weightmodifier}, rounds applied: {rounds}")
-                model, weight = update
-                updates.update({addr: (model, weight*weightmodifier)})
-        await self._update_weight_modifiers()
+        await self.fr.apply_weight_strategy(updates)
       
-    async def _update_weight_modifiers(self):
-        self.weight_modifier_lock.acquire()
-        logging.info(f"🔄  Update | weights being updated")
-        if self.weight_modifier:
-            remove_addrs = []
-            for addr, (weight,rounds) in self.weight_modifier.items():
-                new_weight = weight - 1/(rounds**2)
-                rounds = rounds + 1
-                if new_weight > 1 and rounds <= 20:
-                    self.weight_modifier[addr] = (new_weight, rounds)            
-                else:
-                    remove_addrs.append(addr)
-                    #self.remove_weight_modifier(addr)
-            for a in remove_addrs:
-                self.remove_weight_modifier(a)
-        else:
-            if len(self.weight_modifier) == 0 and await self.get_learning_rate_increase() == FT_LEARNING_RATE:
-                logging.info(f"🔄  Finishing | weight strategy is completed")
-                await self._set_learning_rate(VANILLA_LEARNING_RATE)
-                await self.engine.update_model_learning_rate()
-        self.weight_modifier_lock.release()
-    
-    def _get_weight_modifier(self, addr):
-        self.weight_modifier_lock.acquire()
-        wm = self.weight_modifier.get(addr, (1,0))     
-        self.weight_modifier_lock.release()
-        return wm
 
 
                                                         ##############################
@@ -297,8 +235,8 @@ class NodeManager():
         else:
             return False
 
-    def get_trainning_info(self):
-        return self.model_handler.get_model(None)
+    async def get_trainning_info(self):
+        return await self.model_handler.get_model(None)
 
     def add_candidate(self,source, n_neighbors, loss):
         if not self.accept_candidates_lock.locked():
