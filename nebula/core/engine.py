@@ -415,7 +415,8 @@ class Engine:
 
             self.nm.meet_node(source)
             self.nm.update_neighbors(source)
-            await self.update_model_learning_rate()
+            if self.nm.fast_reboot_on:
+                await self.update_model_learning_rate()
         else:
             logging.info(f"❗️  Late connection NOT accepted | source: {source}") 
 
@@ -457,7 +458,7 @@ class Engine:
         #self.nm.meet_node(source)
         if len(self.get_federation_nodes()) > 0:
             await self.trainning_in_progress_lock.acquire_async()
-            model, rounds, round = await self.cm.propagator.get_model_information(source, "stable") if self.get_round() > 0 else await self.cm.propagator.get_model_information(source, "initialization")
+            model, rounds, round = await self.cm.propagator.get_model_information(source, "initialization") if self.get_round() > 0 else await self.cm.propagator.get_model_information(source, "initialization")
             await self.trainning_in_progress_lock.release_async()
             if round != -1:
                 epochs = self.config.participant["training_args"]["epochs"]
@@ -523,7 +524,6 @@ class Engine:
             loss = message.loss
             self.nm.add_candidate(source, n_neighbors, loss)
             
-
     @event_handler(
         nebula_pb2.LinkMessage,
         nebula_pb2.LinkMessage.Action.CONNECT_TO,
@@ -556,8 +556,6 @@ class Engine:
         logging.info("Creating trainer service to start the federation process..")
         asyncio.create_task(self._start_learning_late())
         #decoded_model = self.trainer.deserialize_model(message.parameters)
-
-
 
     def get_push_acceleration(self):
         return self.nm.get_push_acceleration()
@@ -850,7 +848,7 @@ class Engine:
         if not self.mobility:
             return
         logging.info("🔄 Starting additional mobility actions...")
-        self.trainer.show_current_learning_rate()
+        #self.trainer.show_current_learning_rate()
         await self.nm.check_robustness()
         action = await self.nm.check_external_connection_service_status()
         if action:

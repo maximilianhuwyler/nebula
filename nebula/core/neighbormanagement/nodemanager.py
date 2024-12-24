@@ -57,7 +57,7 @@ class NodeManager():
         
         self.synchronizing_rounds = False
         
-        self._fast_reboot = True
+        self._fast_reboot = False
         self._learning_rate = VANILLA_LEARNING_RATE
         self.learning_rate_lock =  Locker(name="learning_rate_lock", async_lock=True)
         
@@ -154,6 +154,8 @@ class NodeManager():
                                                         ##############################
 
     async def add_weight_modifier(self, addr):
+        if not self.fast_reboot_on():
+            return
         self.weight_modifier_lock.acquire()
         if not addr in self.weight_modifier:
             wm = self.new_node_weight_multiplier 
@@ -168,6 +170,8 @@ class NodeManager():
             del self.weight_modifier[addr]
     
     async def apply_weight_strategy(self, updates: dict):
+        if not self.fast_reboot_on():
+            return
         logging.info(f"🔄  Applying weight Strategy...")
         # We must lower the weight_modifier value if a round jump has been occured
         # as many times as rounds have been jumped
