@@ -158,7 +158,7 @@ class Engine:
         if self.mobility == True:
             topology = self.config.participant["mobility_args"]["topology_type"]
             topology = topology.lower()
-            model_handler = "default" #self.config.participant["mobility_args"]["model_handler"]
+            model_handler = "std" #self.config.participant["mobility_args"]["model_handler"]
             acceleration_push = "slow" #self.config.participant["mobility_args"]["push_strategy"]
             self._node_manager = NodeManager(topology, model_handler, acceleration_push, engine=self)
         
@@ -327,7 +327,6 @@ class Engine:
             self.nm.update_neighbors(source, remove=True)
         await self.cm.disconnect(source, mutual_disconnection=False)
         
-
     @event_handler(
         nebula_pb2.FederationMessage,
         nebula_pb2.FederationMessage.Action.FEDERATION_READY,
@@ -382,6 +381,8 @@ class Engine:
             logging.exception(f"Error updating round in connection: {e}")
         finally:
             await self.cm.get_connections_lock().release_async()
+
+
 
     # Mobility callbacks
     @event_handler(

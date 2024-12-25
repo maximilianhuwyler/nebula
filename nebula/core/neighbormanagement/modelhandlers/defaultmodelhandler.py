@@ -20,6 +20,7 @@ class DefaultModelHandler(ModelHandler):
             config[0] -> total rounds
             config[1] -> current round
             config[2] -> epochs
+            config[3] -> NodeManager
         """
         self.params_lock.acquire()
         self.rounds = config[0]
@@ -38,8 +39,8 @@ class DefaultModelHandler(ModelHandler):
         Returns:
             model with default weights
         """
-        (sm, rounds, round) = await self._nm.engine.cm.propagator.get_model_information(None, "initialization", init=True)
-        return (sm, rounds, round, self.epochs)
+        (sm, _, _) = await self._nm.engine.cm.propagator.get_model_information(None, "initialization", init=True)
+        return (sm, self.rounds, self.round, self.epochs)
 
     def pre_process_model(self):
         """

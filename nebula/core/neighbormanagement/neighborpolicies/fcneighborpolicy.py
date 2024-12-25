@@ -89,7 +89,10 @@ class FCNeighborPolicy(NeighborPolicy):
     def update_neighbors(self, node, remove=False):
         self.neighbors_lock.acquire()
         if remove:
-            self.neighbors.remove(node)
+            try:
+                self.neighbors.remove(node)
+            except KeyError:
+                pass    
         else:
             self.neighbors.add(node)
         self.neighbors_lock.release() 
