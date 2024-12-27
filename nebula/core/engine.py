@@ -413,7 +413,7 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg) 
 
-            self.nm.register_late_neighbor(source, joinning_federation=True)
+            await self.nm.register_late_neighbor(source, joinning_federation=True)
             
         else:
             logging.info(f"❗️  Late connection NOT accepted | source: {source}") 
@@ -443,7 +443,7 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg)
                
-            self.nm.register_late_neighbor(source, joinning_federation=False)    
+            await self.nm.register_late_neighbor(source, joinning_federation=False)    
               
         else:
             logging.info(f"❗️  handle_connection_message | Trigger | restructure connection denied from {source}")
@@ -550,7 +550,7 @@ class Engine:
         logging.info(f"Aditional node | {self.addr} | going to stablish connection with federation")
         await self.nm.start_late_connection_process()
         # continue ..
-        asyncio.create_task(self.nm.stop_not_selected_connections())
+        #asyncio.create_task(self.nm.stop_not_selected_connections())
         logging.info("Creating trainer service to start the federation process..")
         asyncio.create_task(self._start_learning_late())
         #decoded_model = self.trainer.deserialize_model(message.parameters)
@@ -568,11 +568,10 @@ class Engine:
         else:
             return pending_models
     
-    async def update_model_learning_rate(self):
+    async def update_model_learning_rate(self, new_lr):
         await self.trainning_in_progress_lock.acquire_async()
         if self.get_round() < self.total_rounds:
             logging.info("Update | learning rate modified...")
-            new_lr = await self.nm.get_learning_rate_increase()
             self.trainer.update_model_learning_rate(new_lr)
         await self.trainning_in_progress_lock.release_async()        
         

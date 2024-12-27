@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from nebula.core.neighbormanagement.nodemanager import NodeManager
 
 VANILLA_LEARNING_RATE = 1e-3
-FR_LEARNING_RATE = 2e-3
+FR_LEARNING_RATE = 1e-3#2e-3
 MAX_ROUNDS = 20
 DEFAULT_WEIGHT_MODIFIER = 3
 
@@ -23,7 +23,7 @@ class FastReboot():
     ):  
         self._node_manager = node_manager
         self._max_rounds = max_rounds_application
-        self._weight_modifier = weight_modifier
+        self._weight_mod_value = weight_modifier
         self._default_lr = default_learning_rate
         self._upgrade_lr = upgrade_learning_rate
         self._current_lr = default_learning_rate
@@ -55,42 +55,52 @@ class FastReboot():
         await self._learning_rate_lock.release_async()
         
     async def add_fastReboot_addr(self, addr):
-        self._weight_modifier_lock.acquire()
+        await self._weight_modifier_lock.acquire_async()
         if not addr in self._weight_modifier:
-            wm = self._weight_modifier 
+            wm = self._weight_mod_value 
             logging.info(f"📝 Registering | FastReboot registered for source {addr} | round application: {self._max_rounds} | multiplier value: {wm}")
-            self._weight_modifier[addr] = (wm,0)
+            self._weight_modifier[addr] = (wm,1)
             await self._set_learning_rate(self._upgrade_lr)
-            await self.nm.update_learning_rate(await self.get_current_learning_rate())
-        self._weight_modifier_lock.release()
+            current_lr = await self.get_current_learning_rate()
+            await self.nm.update_learning_rate(current_lr)
+        await self._weight_modifier_lock.release_async()
         
     async def _remove_weight_modifier(self, addr):
-        if addr in self._weight_modifier:
-            logging.info(f"📝 Removing | FastReboot registered for source {addr}")
-            del self._weight_modifier[addr]
+        logging.info(f"📝 Removing | FastReboot removed for source {addr}")
+        del self._weight_modifier[addr]
+            
+    async def _weight_modifiers_empty(self):
+        await self._weight_modifier_lock.acquire_async()
+        empty = False if self._weight_modifier else True
+        await self._weight_modifier_lock.release_async()
+        return empty
                     
-    async def apply_weight_strategy(self, updates: dict):
+    async def apply_weight_strategy(self, updates: dict):  
+        if await self._weight_modifiers_empty():
+            await self._end_fastreboot()
+            return
         logging.info(f"🔄  Applying FastReboot Strategy...")
         # We must lower the weight_modifier value if a round jump has been occured
         # as many times as rounds have been jumped
-        if self.rounds_pushed:
+        if self._rounds_pushed:
             logging.info(f"🔄  There are rounds being pushed...")
             for i in range(0, self.rounds_pushed):
                 logging.info(f"🔄  Update | weights being updated cause of push...")
                 self._update_weight_modifiers()
             self.rounds_pushed = 0  
         for addr,update in updates.items():
-            weightmodifier, rounds = self._get_weight_modifier(addr)
+            weightmodifier, rounds = await self._get_weight_modifier(addr)
             if weightmodifier != 1:
                 logging.info (f"📝 Appliying FastReboot strategy | addr: {addr} | multiplier value: {weightmodifier}, rounds applied: {rounds}")
                 model, weight = update
                 updates.update({addr: (model, weight*weightmodifier)})
         await self._update_weight_modifiers()
-      
+    
+    #TODO integrar en el get_wegith_modifier para que se actualice cuando se pide y ahi se compruebe si hay q eliminar una entrada  
     async def _update_weight_modifiers(self):
-        self._weight_modifier_lock.acquire_async()
-        logging.info(f"🔄  Update | weights being updated")
+        await self._weight_modifier_lock.acquire_async()
         if self._weight_modifier:
+            logging.info(f"🔄  Update | weights being updated")
             remove_addrs = []
             for addr, (weight,rounds) in self._weight_modifier.items():
                 new_weight = weight - 1/(rounds**2)
@@ -99,20 +109,22 @@ class FastReboot():
                     self._weight_modifier[addr] = (new_weight, rounds)            
                 else:
                     remove_addrs.append(addr)
-                    #self.remove_weight_modifier(addr)
             for a in remove_addrs:
-                self._remove_weight_modifier(a)
-        else:
-            if not self._weight_modifier and await self._is_lr_modified():
-                logging.info(f"🔄  Finishing | FastReboot is completed")
-                await self._set_learning_rate(self._default_lr)
-                await self.nm.update_learning_rate()
-        self._weight_modifier_lock.release_async()
+                await self._remove_weight_modifier(a)
+        await self._weight_modifier_lock.release_async()
+        
+    async def _end_fastreboot(self):
+        await self._weight_modifier_lock.acquire_async()
+        if not self._weight_modifier and await self._is_lr_modified():
+            logging.info(f"🔄  Finishing | FastReboot is completed")
+            await self._set_learning_rate(self._default_lr)
+            await self.nm.update_learning_rate(self._default_lr)
+        await self._weight_modifier_lock.release_async()
     
     async def _get_weight_modifier(self, addr):
-        self._weight_modifier_lock.acquire_async()
+        await self._weight_modifier_lock.acquire_async()
         wm = self._weight_modifier.get(addr, (1,0))     
-        self._weight_modifier_lock.release_async()
+        await self._weight_modifier_lock.release_async()
         return wm
     
     async def _is_lr_modified(self):

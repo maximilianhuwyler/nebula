@@ -350,14 +350,18 @@ async def main(config):
     if additional_node_status:
         logging.info(f"Waiting for round {additional_node_round} to start")
         logging.info("Waiting time to start finding federation")
+        # MNIST
         # 385 r30
         # 615 r50
-        if config.participant["network_args"]["ip"] == "192.168.50.9":
-            logging.info("Sleeping 385s...")
-            time.sleep(420)
-        elif config.participant["network_args"]["ip"] == "192.168.50.10":
-            logging.info("Sleeping 800s...")
-            time.sleep(615)
+        
+        # CIFAR
+        # 420 r15
+        #if config.participant["network_args"]["ip"] == "192.168.50.9":
+        #    logging.info("Sleeping 385s...")
+        time.sleep(385)
+        #elif config.participant["network_args"]["ip"] == "192.168.50.10":
+        #    logging.info("Sleeping 800s...")
+        #    time.sleep(615)
         #time.sleep(6000)  # DEBUG purposes
         #import requests
 

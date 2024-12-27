@@ -23,7 +23,7 @@ class NodeManager():
         model_handler,
         push_acceleration,
         engine : "Engine",
-        fastreboot=False,
+        fastreboot=True,
     ):
         self.topology = topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -147,7 +147,7 @@ class NodeManager():
         self.update_neighbors(addr)
         if joinning_federation:
             if self.fast_reboot_on():
-                self.fr.add_fastReboot_addr(addr)
+                await self.fr.add_fastReboot_addr(addr)
                                                                               
     async def apply_weight_strategy(self, updates: dict):
         if not self.fast_reboot_on():
@@ -228,7 +228,9 @@ class NodeManager():
     def accept_model_offer(self, source, decoded_model, rounds, round, epochs, n_neighbors, loss): 
         if not self.accept_candidates_lock.locked():
             logging.info(f"🔄 Processing offer from {source}...")
-            model_accepted = self.model_handler.accept_model(decoded_model)
+            model_accepted = True#self.model_handler.accept_model(decoded_model)
+            if source == "192.168.50.8:45007":
+                self.model_handler.accept_model(decoded_model)
             self.model_handler.set_config(config=(rounds, round, epochs, self))
             if model_accepted:      
                 self.candidate_selector.add_candidate((source, n_neighbors, loss))
