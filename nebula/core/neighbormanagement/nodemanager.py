@@ -23,7 +23,7 @@ class NodeManager():
         model_handler,
         push_acceleration,
         engine : "Engine",
-        fastreboot=True,
+        fastreboot=False,
     ):
         self.topology = topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -36,8 +36,9 @@ class NodeManager():
         self._candidate_selector = factory_CandidateSelector(self.topology)
         logging.info("Initializing Model Handler")
         self._model_handler = factory_ModelHandler(model_handler)
+        self._update_neighbors_lock = Locker(name="_update_neighbors_lock")
         self.late_connection_process_lock = Locker(name="late_connection_process_lock")
-        self.pending_confirmation_from_nodes = []
+        self.pending_confirmation_from_nodes = set()
         self.pending_confirmation_from_nodes_lock = Locker(name="pending_confirmation_from_nodes_lock")
         self.accept_candidates_lock = Locker(name="accept_candidates_lock")
         self.recieve_offer_timer = 5
@@ -119,7 +120,8 @@ class NodeManager():
             [
                 await self.engine.cm.get_addrs_current_connections(only_direct=True, myself=False), 
                 await self.engine.cm.get_addrs_current_connections(only_direct=False, only_undirected=False, myself=False), 
-                self.engine.addr
+                self.engine.addr,
+                self
             ]
         )
         logging.info(f"Building candidate selector configuration..")
@@ -162,20 +164,18 @@ class NodeManager():
 
     
     def accept_connection(self, source, joining=False):
-        if not joining:
-            if self.get_restructure_process_lock().locked():
-                logging.info("NOT accepting connections | Currently upgrading network Robustness")
-                return False
-            else:
-                return self.neighbor_policy.accept_connection(source)
-        else:
-            return self.neighbor_policy.accept_connection(source)
-        
-    #TODO añadir un remove    
+        return self.neighbor_policy.accept_connection(source, joining)
+         
     def add_pending_connection_confirmation(self, addr):
-        logging.info(f" Addition | pending connection confirmation from: {addr}")
+        with self._update_neighbors_lock:
+            with self.pending_confirmation_from_nodes_lock:
+                if not addr in self.neighbor_policy.get_nodes_known(neighbors_too=True):
+                    logging.info(f" Addition | pending connection confirmation from: {addr}")
+                    self.pending_confirmation_from_nodes.add(addr)
+    
+    def _remove_pending_confirmation_from(self, addr):
         with self.pending_confirmation_from_nodes_lock:
-            self.pending_confirmation_from_nodes.append(addr)
+            self.pending_confirmation_from_nodes.discard(addr)
      
     def clear_pending_confirmations(self):
         with self.pending_confirmation_from_nodes_lock:
@@ -191,8 +191,7 @@ class NodeManager():
             await self.engine.cm.connect(addr, direct=True)    
             self.update_neighbors(addr)
         else:
-            with self.pending_confirmation_from_nodes_lock:
-                self.pending_confirmation_from_nodes.remove(addr)  
+            self._remove_pending_confirmation_from(addr)  
         
     def add_to_discarded_offers(self, addr_discarded):
         self.discarded_offers_addr_lock.acquire()
@@ -207,13 +206,16 @@ class NodeManager():
     
     def update_neighbors(self, node, remove=False):
         logging.info(f"Update neighbor | node addr: {node} | remove: {remove}")
+        self._update_neighbors_lock.acquire()
         self.neighbor_policy.update_neighbors(node, remove)
         #self.timer_generator.update_node(node, remove)
         if remove:
-            pass #TODO
-            #self.remove_weight_modifier(node)
-        if not remove:
+            if self._fast_reboot_status:
+                self.fr.discard_fastreboot_for(node)
+        else:
             self.neighbor_policy.meet_node(node)
+            self._remove_pending_confirmation_from(node)
+        self._update_neighbors_lock.release()
     
     async def neighbors_left(self):
         return len(await self.engine.cm.get_addrs_current_connections(only_direct=True, myself=False)) > 0
@@ -228,9 +230,9 @@ class NodeManager():
     def accept_model_offer(self, source, decoded_model, rounds, round, epochs, n_neighbors, loss): 
         if not self.accept_candidates_lock.locked():
             logging.info(f"🔄 Processing offer from {source}...")
-            model_accepted = True#self.model_handler.accept_model(decoded_model)
-            if source == "192.168.50.8:45007":
-                self.model_handler.accept_model(decoded_model)
+            model_accepted = self.model_handler.accept_model(decoded_model)
+            #if source == "192.168.50.8:45007":
+            #    self.model_handler.accept_model(decoded_model)
             self.model_handler.set_config(config=(rounds, round, epochs, self))
             if model_accepted:      
                 self.candidate_selector.add_candidate((source, n_neighbors, loss))
@@ -244,6 +246,9 @@ class NodeManager():
     def add_candidate(self,source, n_neighbors, loss):
         if not self.accept_candidates_lock.locked():
             self.candidate_selector.add_candidate((source, n_neighbors, loss))
+            
+    async def currently_reestructuring(self):
+        return self._restructure_process_lock.locked()
 
     async def stop_not_selected_connections(self):
         try:
@@ -316,8 +321,6 @@ class NodeManager():
                 for addr, _, _ in best_candidates:
                     await self.engine.cm.send_message(addr, msg)
                     self.add_pending_connection_confirmation(addr)
-                    #await self.engine.cm.connect(addr, direct=True)    
-                    #self.update_neighbors(addr)
                     await asyncio.sleep(1) 
             except asyncio.CancelledError as e:
                 self.update_neighbors(addr, remove=True)
@@ -342,6 +345,7 @@ class NodeManager():
     
     
     async def check_robustness(self):
+        #TODO añadir un cd para que no se haga continuamente
         logging.info("🔄 Analizing node network robustness...")
         if not self._restructure_process_lock.locked():
             if not self.neighbors_left():

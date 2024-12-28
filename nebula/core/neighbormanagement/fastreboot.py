@@ -33,6 +33,8 @@ class FastReboot():
         self._weight_modifier_lock = Locker(name="weight_modifier_lock", async_lock=True)
         self._rounds_pushed_lock = Locker(name="rounds_pushed_lock", async_lock=True)
         self._rounds_pushed = 0
+        
+        self._fr_in_progress = False
             
     @property
     def nm(self):
@@ -49,6 +51,14 @@ class FastReboot():
         await self._learning_rate_lock.release_async()
         return lr
         
+    async def discard_fastreboot_for(self, addr):
+        await self._weight_modifier_lock.acquire_async()
+        try:
+            del self._weight_modifier[addr]
+        except KeyError as e:
+            pass
+        await self._weight_modifier_lock.release_async()    
+        
     async def _set_learning_rate(self, lr):
         await self._learning_rate_lock.acquire_async()
         self._current_lr = lr
@@ -57,6 +67,7 @@ class FastReboot():
     async def add_fastReboot_addr(self, addr):
         await self._weight_modifier_lock.acquire_async()
         if not addr in self._weight_modifier:
+            self._fr_in_progress = True
             wm = self._weight_mod_value 
             logging.info(f"📝 Registering | FastReboot registered for source {addr} | round application: {self._max_rounds} | multiplier value: {wm}")
             self._weight_modifier[addr] = (wm,1)
@@ -77,7 +88,8 @@ class FastReboot():
                     
     async def apply_weight_strategy(self, updates: dict):  
         if await self._weight_modifiers_empty():
-            await self._end_fastreboot()
+            if self._fr_in_progress:
+                await self._end_fastreboot()
             return
         logging.info(f"🔄  Applying FastReboot Strategy...")
         # We must lower the weight_modifier value if a round jump has been occured
@@ -117,6 +129,7 @@ class FastReboot():
         await self._weight_modifier_lock.acquire_async()
         if not self._weight_modifier and await self._is_lr_modified():
             logging.info(f"🔄  Finishing | FastReboot is completed")
+            self._fr_in_progress = False
             await self._set_learning_rate(self._default_lr)
             await self.nm.update_learning_rate(self._default_lr)
         await self._weight_modifier_lock.release_async()
