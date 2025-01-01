@@ -273,6 +273,7 @@ class Aggregator(ABC):
             If the node is not sinchronized with the federation, it may be possible to make a push
             and try to catch the federation asap. 
         """
+        #TODO it would be able to push even if not fullround updates are being received
         logging.info(f"❗️ synchronized status: {self.engine.get_sinchronized_status()} | Analizing if an aggregation push is available...")
         if not self.engine.get_sinchronized_status() and not self.engine.get_trainning_in_progress_lock().locked() and not self.engine.get_synchronizing_rounds():
             n_fed_nodes = len(self._federation_nodes) 
@@ -282,7 +283,7 @@ class Aggregator(ABC):
                 n_fed_nodes-=1
                 for f_round, fm in self._future_models_to_aggregate.items():
                     # future_models dont count self node           
-                    if len(fm) == n_fed_nodes:
+                    if len(fm) == n_fed_nodes or (f_round-self.engine.get_round() >= 2):
                         further_round = f_round                  
                         push = self.engine.get_push_acceleration()
                         if push == "slow":
@@ -356,6 +357,7 @@ class Aggregator(ABC):
                     return
                     
                 else:
+                    logging.info("Info | No future rounds available, device is up to date...")
                     self.engine.update_sinchronized_status(True)
                     self.engine.set_synchronizing_rounds(False)
             else:

@@ -36,10 +36,10 @@ class NodeManager():
         self._candidate_selector = factory_CandidateSelector(self.topology)
         logging.info("Initializing Model Handler")
         self._model_handler = factory_ModelHandler(model_handler)
-        self._update_neighbors_lock = Locker(name="_update_neighbors_lock")
+        self._update_neighbors_lock = Locker(name="_update_neighbors_lock", async_lock=True)
         self.late_connection_process_lock = Locker(name="late_connection_process_lock")
         self.pending_confirmation_from_nodes = set()
-        self.pending_confirmation_from_nodes_lock = Locker(name="pending_confirmation_from_nodes_lock")
+        self.pending_confirmation_from_nodes_lock = Locker(name="pending_confirmation_from_nodes_lock", async_lock=True)
         self.accept_candidates_lock = Locker(name="accept_candidates_lock")
         self.recieve_offer_timer = 5
         self._restructure_process_lock = Locker(name="restructure_process_lock")
@@ -146,7 +146,7 @@ class NodeManager():
         
     async def register_late_neighbor(self, addr, joinning_federation=False):
         self.meet_node(addr)
-        self.update_neighbors(addr)
+        await self.update_neighbors(addr)
         if joinning_federation:
             if self.fast_reboot_on():
                 await self.fr.add_fastReboot_addr(addr)
@@ -166,24 +166,30 @@ class NodeManager():
     def accept_connection(self, source, joining=False):
         return self.neighbor_policy.accept_connection(source, joining)
          
-    def add_pending_connection_confirmation(self, addr):
-        with self._update_neighbors_lock:
-            with self.pending_confirmation_from_nodes_lock:
-                if not addr in self.neighbor_policy.get_nodes_known(neighbors_too=True):
-                    logging.info(f" Addition | pending connection confirmation from: {addr}")
-                    self.pending_confirmation_from_nodes.add(addr)
+    async def add_pending_connection_confirmation(self, addr):
+        await self._update_neighbors_lock.acquire_async()
+        await self.pending_confirmation_from_nodes_lock.acquire_async()
+        if not addr in self.neighbor_policy.get_nodes_known(neighbors_too=True):
+            logging.info(f" Addition | pending connection confirmation from: {addr}")
+            self.pending_confirmation_from_nodes.add(addr)
+        await self.pending_confirmation_from_nodes_lock.release_async()
+        await self._update_neighbors_lock.release_async()
     
-    def _remove_pending_confirmation_from(self, addr):
-        with self.pending_confirmation_from_nodes_lock:
-            self.pending_confirmation_from_nodes.discard(addr)
+    async def _remove_pending_confirmation_from(self, addr):
+        await self.pending_confirmation_from_nodes_lock.acquire_async()
+        self.pending_confirmation_from_nodes.discard(addr)
+        await self.pending_confirmation_from_nodes_lock.release_async()
      
-    def clear_pending_confirmations(self):
-        with self.pending_confirmation_from_nodes_lock:
-            self.pending_confirmation_from_nodes.clear()
+    async def clear_pending_confirmations(self):
+        await self.pending_confirmation_from_nodes_lock.acquire_async()
+        self.pending_confirmation_from_nodes.clear()
+        await self.pending_confirmation_from_nodes_lock.release_async()
      
-    def waiting_confirmation_from(self, addr):
-        with self.pending_confirmation_from_nodes_lock:
-            return addr in self.pending_confirmation_from_nodes  
+    async def waiting_confirmation_from(self, addr):
+        await self.pending_confirmation_from_nodes_lock.acquire_async()
+        found = addr in self.pending_confirmation_from_nodes
+        await self.pending_confirmation_from_nodes_lock.release_async()
+        return found  
             
     async def confirmation_received(self, addr, confirmation=False):
         logging.info(f" Update | connection confirmation received from: {addr} | confirmation: {confirmation}")
@@ -204,9 +210,9 @@ class NodeManager():
     def get_actions(self):
         return self.neighbor_policy.get_actions()
     
-    def update_neighbors(self, node, remove=False):
+    async def update_neighbors(self, node, remove=False):
         logging.info(f"Update neighbor | node addr: {node} | remove: {remove}")
-        self._update_neighbors_lock.acquire()
+        await self._update_neighbors_lock.acquire_async()
         self.neighbor_policy.update_neighbors(node, remove)
         #self.timer_generator.update_node(node, remove)
         if remove:
@@ -215,7 +221,7 @@ class NodeManager():
         else:
             self.neighbor_policy.meet_node(node)
             self._remove_pending_confirmation_from(node)
-        self._update_neighbors_lock.release()
+        await self._update_neighbors_lock.release_async()
     
     async def neighbors_left(self):
         return len(await self.engine.cm.get_addrs_current_connections(only_direct=True, myself=False)) > 0
@@ -320,7 +326,7 @@ class NodeManager():
             try:
                 for addr, _, _ in best_candidates:
                     await self.engine.cm.send_message(addr, msg)
-                    self.add_pending_connection_confirmation(addr)
+                    await self.add_pending_connection_confirmation(addr)
                     await asyncio.sleep(1) 
             except asyncio.CancelledError as e:
                 self.update_neighbors(addr, remove=True)

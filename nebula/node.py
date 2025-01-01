@@ -358,7 +358,7 @@ async def main(config):
         # 420 r15
         #if config.participant["network_args"]["ip"] == "192.168.50.9":
         #    logging.info("Sleeping 385s...")
-        time.sleep(430)
+        time.sleep(420)
         #elif config.participant["network_args"]["ip"] == "192.168.50.10":
         #    logging.info("Sleeping 800s...")
         #    time.sleep(615)

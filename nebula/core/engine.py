@@ -321,10 +321,10 @@ class Engine:
     async def _connection_disconnect_callback(self, source, message):
         logging.info(f"🔗  handle_connection_message | Trigger | Received disconnection message from {source}")
         if self.mobility:
-            if self.nm.waiting_confirmation_from(source):
-                self.nm.confirmation_received(source, confirmation=False)
+            if await self.nm.waiting_confirmation_from(source):
+                await self.nm.confirmation_received(source, confirmation=False)
             #if source in await self.cm.get_all_addrs_current_connections(only_direct=True):
-            self.nm.update_neighbors(source, remove=True)
+            await self.nm.update_neighbors(source, remove=True)
         await self.cm.disconnect(source, mutual_disconnection=False)
         
     @event_handler(
@@ -392,7 +392,7 @@ class Engine:
     async def _connection_late_connect_callback(self, source, message):
         logging.info(f"🔗  handle_connection_message | Trigger | Received late connect message from {source}")
         # Verify if it's a confirmation message from a previous late connection message sent to source
-        if self.nm.waiting_confirmation_from(source):
+        if await self.nm.waiting_confirmation_from(source):
             await self.nm.confirmation_received(source, confirmation=True)          
         elif self.nm.accept_connection(source, joining=True):
             logging.info(f"🔗  handle_connection_message | Late connection accepted | source: {source}") 
@@ -425,7 +425,7 @@ class Engine:
     async def _connection_restructure_callback(self, source, message):
         logging.info(f"🔗  handle_connection_message | Trigger | Received restructure message from {source}")
         # Verify if it's a confirmation message from a previous restructure connection message sent to source
-        if self.nm.waiting_confirmation_from(source):
+        if await self.nm.waiting_confirmation_from(source):
             await self.nm.confirmation_received(source, confirmation=True)
         elif self.nm.accept_connection(source, joining=False):
             logging.info(f"🔗  handle_connection_message | Trigger | restructure connection accepted from {source}")
@@ -543,7 +543,7 @@ class Engine:
         addrs = message.addrs
         for addr in addrs.split():
             await self.cm.disconnect(source, mutual_disconnection=False)
-            self.nm.update_neighbors(addr, remove=True)                
+            await self.nm.update_neighbors(addr, remove=True)                
                     
     async def _aditional_node_start(self):
         self.update_sinchronized_status(False)
@@ -553,7 +553,6 @@ class Engine:
         #asyncio.create_task(self.nm.stop_not_selected_connections())
         logging.info("Creating trainer service to start the federation process..")
         asyncio.create_task(self._start_learning_late())
-        #decoded_model = self.trainer.deserialize_model(message.parameters)
 
     def get_push_acceleration(self):
         return self.nm.get_push_acceleration()
