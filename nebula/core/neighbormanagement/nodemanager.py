@@ -169,7 +169,7 @@ class NodeManager():
     async def add_pending_connection_confirmation(self, addr):
         await self._update_neighbors_lock.acquire_async()
         await self.pending_confirmation_from_nodes_lock.acquire_async()
-        if not addr in self.neighbor_policy.get_nodes_known(neighbors_too=True):
+        if not addr in self.neighbor_policy.get_nodes_known(neighbors_only=True):
             logging.info(f" Addition | pending connection confirmation from: {addr}")
             self.pending_confirmation_from_nodes.add(addr)
         await self.pending_confirmation_from_nodes_lock.release_async()
@@ -325,8 +325,8 @@ class NodeManager():
             # candidates not choosen --> disconnect
             try:
                 for addr, _, _ in best_candidates:
-                    await self.engine.cm.send_message(addr, msg)
                     await self.add_pending_connection_confirmation(addr)
+                    await self.engine.cm.send_message(addr, msg)
                     await asyncio.sleep(1) 
             except asyncio.CancelledError as e:
                 await self.update_neighbors(addr, remove=True)

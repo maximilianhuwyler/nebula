@@ -58,7 +58,7 @@ class RINGNeighborPolicy(NeighborPolicy):
             self.nodes_known.discard(node)
         self.nodes_known_lock.release()
         
-    def get_nodes_known(self, neighbors_too=False):
+    def get_nodes_known(self, neighbors_too=False, neighbors_only=False):
         self.nodes_known_lock.acquire()
         nk = self.nodes_known.copy()
         if not neighbors_too:

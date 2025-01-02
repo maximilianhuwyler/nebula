@@ -537,7 +537,7 @@ class Engine:
         nebula_pb2.LinkMessage.Action.CONNECT_TO,
     )
     async def _link_connect_to_callback(self, source, message):
-        logging.info(f"🔗  handle_link_message | Trigger | Received connecto_to message from {source}")
+        logging.info(f"🔗  handle_link_message | Trigger | Received connect_to message from {source}")
         addrs = message.addrs
         for addr in addrs.split():
             #await self.cm.connect(addr, direct=True)

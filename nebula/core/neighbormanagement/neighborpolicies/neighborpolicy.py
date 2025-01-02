@@ -28,7 +28,7 @@ class NeighborPolicy(ABC):
         pass
     
     @abstractmethod
-    def get_nodes_known(self, neighbors_too=False):
+    def get_nodes_known(self, neighbors_too=False, neighbors_only=False):
         pass
     
     @abstractmethod

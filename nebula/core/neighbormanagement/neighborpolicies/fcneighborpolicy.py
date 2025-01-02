@@ -54,7 +54,13 @@ class FCNeighborPolicy(NeighborPolicy):
         self.nodes_known.add(node)
         self.nodes_known_lock.release()
         
-    def get_nodes_known(self, neighbors_too=False):
+    def get_nodes_known(self, neighbors_too=False, neighbors_only=False):     
+        if neighbors_only:
+            self.neighbors_lock.acquire()
+            no = self.neighbors.copy()
+            self.neighbors_lock.release()
+            return no
+        
         self.nodes_known_lock.acquire()
         nk = self.nodes_known.copy()
         if not neighbors_too:

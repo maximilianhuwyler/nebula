@@ -23,7 +23,7 @@ class IDLENeighborPolicy(NeighborPolicy):
     def forget_nodes(self, node, forget_all=False):
         pass
     
-    def get_nodes_known(self, neighbors_too=False):
+    def get_nodes_known(self, neighbors_too=False, neighbors_only=False):
         return set()
     
     def update_neighbors(self, node, remove=False):
