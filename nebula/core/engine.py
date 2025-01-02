@@ -393,8 +393,14 @@ class Engine:
         logging.info(f"🔗  handle_connection_message | Trigger | Received late connect message from {source}")
         # Verify if it's a confirmation message from a previous late connection message sent to source
         if await self.nm.waiting_confirmation_from(source):
-            await self.nm.confirmation_received(source, confirmation=True)          
-        elif self.nm.accept_connection(source, joining=True):
+            await self.nm.confirmation_received(source, confirmation=True)
+            return
+        
+        if not self.get_initialization_status():
+            logging.info(f"❗️ Connection refused | Device not initialized yet...")
+            return    
+              
+        if self.nm.accept_connection(source, joining=True):
             logging.info(f"🔗  handle_connection_message | Late connection accepted | source: {source}") 
             await self.cm.connect(source, direct=True)
             
@@ -413,8 +419,7 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg) 
 
-            await self.nm.register_late_neighbor(source, joinning_federation=True)
-            
+            await self.nm.register_late_neighbor(source, joinning_federation=True)           
         else:
             logging.info(f"❗️  Late connection NOT accepted | source: {source}") 
 
@@ -427,7 +432,13 @@ class Engine:
         # Verify if it's a confirmation message from a previous restructure connection message sent to source
         if await self.nm.waiting_confirmation_from(source):
             await self.nm.confirmation_received(source, confirmation=True)
-        elif self.nm.accept_connection(source, joining=False):
+            return
+
+        if not self.get_initialization_status():
+            logging.info(f"❗️ Connection refused | Device not initialized yet...")
+            return 
+
+        if self.nm.accept_connection(source, joining=False):
             logging.info(f"🔗  handle_connection_message | Trigger | restructure connection accepted from {source}")
             await self.cm.connect(source, direct=True)
             
@@ -443,8 +454,7 @@ class Engine:
                 df_msg = self.cm.mm.generate_link_message(nebula_pb2.LinkMessage.Action.DISCONNECT_FROM, df_actions)
                 await self.cm.send_message(source, df_msg)
                
-            await self.nm.register_late_neighbor(source, joinning_federation=False)    
-              
+            await self.nm.register_late_neighbor(source, joinning_federation=False)          
         else:
             logging.info(f"❗️  handle_connection_message | Trigger | restructure connection denied from {source}")
             await asyncio.sleep(1)
@@ -569,9 +579,8 @@ class Engine:
     
     async def update_model_learning_rate(self, new_lr):
         await self.trainning_in_progress_lock.acquire_async()
-        if self.get_round() < self.total_rounds:
-            logging.info("Update | learning rate modified...")
-            self.trainer.update_model_learning_rate(new_lr)
+        logging.info("Update | learning rate modified...")
+        self.trainer.update_model_learning_rate(new_lr)
         await self.trainning_in_progress_lock.release_async()        
         
     async def _start_learning_late(self):

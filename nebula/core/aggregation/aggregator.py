@@ -283,7 +283,7 @@ class Aggregator(ABC):
                 n_fed_nodes-=1
                 for f_round, fm in self._future_models_to_aggregate.items():
                     # future_models dont count self node           
-                    if len(fm) == n_fed_nodes or (f_round-self.engine.get_round() >= 2):
+                    if len(fm) == n_fed_nodes:
                         further_round = f_round                  
                         push = self.engine.get_push_acceleration()
                         if push == "slow":

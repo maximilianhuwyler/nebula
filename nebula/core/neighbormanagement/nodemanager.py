@@ -23,7 +23,7 @@ class NodeManager():
         model_handler,
         push_acceleration,
         engine : "Engine",
-        fastreboot=False,
+        fastreboot=True,
     ):
         self.topology = topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -195,7 +195,7 @@ class NodeManager():
         logging.info(f" Update | connection confirmation received from: {addr} | confirmation: {confirmation}")
         if confirmation:
             await self.engine.cm.connect(addr, direct=True)    
-            self.update_neighbors(addr)
+            await self.update_neighbors(addr)
         else:
             self._remove_pending_confirmation_from(addr)  
         
@@ -300,7 +300,7 @@ class NodeManager():
         self.late_connection_process_lock.acquire()
         best_candidates = []
         self.candidate_selector.remove_candidates()
-        self.clear_pending_confirmations()
+        await self.clear_pending_confirmations()
         
         # find federation and send discover
         await self.engine.cm.stablish_connection_to_federation(msg_type, addrs_known)
@@ -329,7 +329,7 @@ class NodeManager():
                     await self.add_pending_connection_confirmation(addr)
                     await asyncio.sleep(1) 
             except asyncio.CancelledError as e:
-                self.update_neighbors(addr, remove=True)
+                await self.update_neighbors(addr, remove=True)
                 pass                        
             self.accept_candidates_lock.release()
             self.late_connection_process_lock.release()       
