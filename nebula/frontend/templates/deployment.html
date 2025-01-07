@@ -114,9 +114,9 @@
                         <label style="display: inline-block; align-items: center; margin-bottom: 10px;">
                             <input type="checkbox" id="mod-star" value='Star' style="margin-right: 10px; margin-left: 10px;">Star
                         </label>
-                        <input type="number" id="mod-topology-nodes" placeholder="Nodes" oninput="greaterthan0(this)" style="display: inline; width: 15%; margin-left: 10px;">
-                        <input type="number" id="mod-topology-increment" placeholder="Increment" oninput="greaterthan0(this)" style="display: inline; width: 21%; margin-left: 0px;">
-                        <input type="number" id="mod-topology-iterations" placeholder="Iterations" oninput="greaterthan0(this)" style="display: inline; width: 20%; margin-left: 0px;">
+                        <input type="number" id="mod-topology-nodes" placeholder="Nodes" oninput="greaterThan0(this)" style="display: inline; width: 15%; margin-left: 10px;">
+                        <input type="number" id="mod-topology-increment" placeholder="Increment" oninput="greaterThan0(this)" style="display: inline; width: 21%; margin-left: 0px;">
+                        <input type="number" id="mod-topology-iterations" placeholder="Iterations" oninput="greaterThan0(this)" style="display: inline; width: 20%; margin-left: 0px;">
                     </div>
                     <hr>
                     <h5>Dataset <i class="fa fa-database"></i>
@@ -277,7 +277,7 @@
                             <option>Random</option>
                         </select>
                         <input type="number" class="form-control" id="predefined-topology-nodes"
-                            placeholder="Number of nodes" min="1" value="3" oninput="greaterthan0(this)" style="display: inline; width: 40%">
+                            placeholder="Number of nodes" min="1" value="3" oninput="greaterThan0(this)" style="display: inline; width: 40%">
                     </div>
                 </div>
                 <div class="form-group row container-shadow tiny grey">
@@ -562,7 +562,8 @@
                         <h5 class="step-title" id="poisoned-sample-title" style="display: none;">% samples poisoned by each malicious node</h5>
                         <div class="form-check form-check-inline" id="poisoned-sample-percent-container" style="display: none;">
                             <input type="number" class="form-control" id="poisoned-sample-percent"
-                                placeholder="% samples poisoned in each malicious node" min="0" value="0"
+                                placeholder="% samples poisoned in each malicious node" min="0" value="0" max="1"
+                                oninput="isInRange(this, 0, 1)"
                                 style="display: inline; width: 80%">
                         </div>
                         <h5 id="poisoned-noise-title" class="step-title" style="display: none;">% poisoned noise</h5>
@@ -583,7 +584,7 @@
                                 placeholder="target label" min="0" value="4"
                                 style="display: inline; width: 80%">
                         </div>
-                        <h5 id="target-changed-label-title" class="step-title" style="display: none;">target label</h5>
+                        <h5 id="target-changed-label-title" class="step-title" style="display: none;">target changed label</h5>
                         <div class="form-check form-check-inline" id="target-changed-label-container" style="display: none;">
                             <input type="number" class="form-control" id="target-changed-label"
                                 placeholder="target changed label" min="0" value="7"
@@ -1936,10 +1937,17 @@
             }
         }
 
-        function greaterthan0(input){
+        function greaterThan0(input){
             value = parseInt(input.value)
             if(value < 1 && !isNaN(value)){
                 input.value = 1;
+            }
+        }
+
+        function isInRange(input, min, max) {
+            value = parseInt(input.value)
+            if(value < min || value > max){
+                input.value = min
             }
         }
     </script>
