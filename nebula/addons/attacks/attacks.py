@@ -41,7 +41,7 @@ def create_attack(attack_name):
 
 
 ###################
-# Behaviour Attacks#
+#Behaviour Attacks#
 ###################
 
 
@@ -163,12 +163,15 @@ class DelayerAttack(BehaviourAttack):
 
 
 #################
-# Dataset Attacks#
+#Dataset Attacks#
 #################
 
 
 class DatasetAttack:
-    def maliciousDataset(self):
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.attack(*args, **kwds)
+    
+    def SetMaliciousDataset(self):
         raise NotImplementedError
 
 
@@ -177,27 +180,27 @@ class LabelFlippingAttack(DatasetAttack):
         super().__init__()
         self.dataset = None
 
-    def maliciousDataset(self, dataset, poisoned_ratio):
-        logging.info("[LabelFlippingAttack] Performing Label Flipping attack")
-        if self.dataset is None:
-            self.dataset = DataModule(
-                train_set=dataset.train_set,
-                train_set_indices=dataset.train_set_indices,
-                test_set=dataset.test_set,
-                test_set_indices=dataset.test_set_indices,
-                local_test_set_indices=dataset.local_test_set_indices,
-                num_workers=dataset.num_workers,
-                partition_id=dataset.partition_id,
-                partitions_number=dataset.partitions_number,
-                batch_size=dataset.batch_size,
-                label_flipping=True,
-                poisoned_ratio=poisoned_ratio,
-                targeted=False,
-                target_label=0,
-                target_changed_label=0,
-                noise_type="salt",
-            )
-            return self.dataset
+    def setMaliciousDataset(self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label):
+        logging.info(f"[LabelFlippingAttack] Performing Label Flipping attack targeted {targeted}")
+        self.dataset = DataModule(
+            train_set=dataset.train_set,
+            train_set_indices=dataset.train_set_indices,
+            test_set=dataset.test_set,
+            test_set_indices=dataset.test_set_indices,
+            local_test_set_indices=dataset.local_test_set_indices,
+            num_workers=dataset.num_workers,
+            partition_id=dataset.partition_id,
+            partitions_number=dataset.partitions_number,
+            batch_size=dataset.batch_size,
+            label_flipping=True,
+            poisoned_percent=poisoned_percent,
+            poisoned_ratio=poisoned_ratio,
+            targeted=targeted,
+            target_label=target_label,
+            target_changed_label=target_changed_label,
+            noise_type="salt",
+        )
+        return self.dataset
 
 
 class SamplePoisoningAttack(DatasetAttack):
@@ -205,32 +208,31 @@ class SamplePoisoningAttack(DatasetAttack):
         super().__init__()
         self.dataset = None
 
-    def maliciousDataset(self, dataset, poisoned_ratio, poisoned_percent):
+    def setMaliciousDataset(self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label):
         logging.info("[SamplePoisoningAttack] Performing Sample Poisoning attack")
-        if self.dataset is None:
-            self.dataset = DataModule(
-                train_set=dataset.train_set,
-                train_set_indices=dataset.train_set_indices,
-                test_set=dataset.test_set,
-                test_set_indices=dataset.test_set_indices,
-                local_test_set_indices=dataset.local_test_set_indices,
-                num_workers=dataset.num_workers,
-                partition_id=dataset.partition_id,
-                partitions_number=dataset.partitions_number,
-                batch_size=dataset.batch_size,
-                data_poisoning=True,
-                poisoned_percent=poisoned_percent,
-                poisoned_ratio=poisoned_ratio,
-                targeted=False,
-                target_label=0,
-                target_changed_label=0,
-                noise_type="salt",
-            )
-            return self.dataset
+        self.dataset = DataModule(
+            train_set=dataset.train_set,
+            train_set_indices=dataset.train_set_indices,
+            test_set=dataset.test_set,
+            test_set_indices=dataset.test_set_indices,
+            local_test_set_indices=dataset.local_test_set_indices,
+            num_workers=dataset.num_workers,
+            partition_id=dataset.partition_id,
+            partitions_number=dataset.partitions_number,
+            batch_size=dataset.batch_size,
+            data_poisoning=True,
+            poisoned_percent=poisoned_percent,
+            poisoned_ratio=poisoned_ratio,
+            targeted=targeted,
+            target_label=target_label,
+            target_changed_label=target_changed_label,
+            noise_type="salt",
+        )
+        return self.dataset
 
 
 ###############
-# Model Attacks#
+#Model Attacks#
 ###############
 
 

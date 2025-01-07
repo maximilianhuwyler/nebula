@@ -66,10 +66,6 @@ class Engine:
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         self.config = config
         self.idx = config.participant["device_args"]["idx"]
@@ -99,10 +95,6 @@ class Engine:
         self.log_dir = os.path.join(config.participant["tracking_args"]["log_dir"], self.experiment_name)
 
         self.security = security
-        self.model_poisoning = model_poisoning
-        self.poisoned_ratio = poisoned_ratio
-        self.poisoned_percent = poisoned_percent
-        self.noise_type = noise_type
 
         self._trainer = trainer(model, dataset, config=self.config)
         self._aggregator = create_aggregator(config=self.config, engine=self)
@@ -591,10 +583,6 @@ class MaliciousNode(Engine):
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         super().__init__(
             model,
@@ -602,18 +590,22 @@ class MaliciousNode(Engine):
             config,
             trainer,
             security,
-            model_poisoning,
-            poisoned_ratio,
-            poisoned_percent,
-            noise_type,
         )
         self.attack = create_attack(config.participant["adversarial_args"]["attacks"])
+        self.poisoned_ratio = config.participant["adversarial_args"]["poisoned_ratio"]
+        self.poisoned_percent = config.participant["adversarial_args"]["poisoned_sample_percent"]
+        self.targeted = config.participant["adversarial_args"]["targeted"]
+        self.target_label = config.participant["adversarial_args"]["target_label"]
+        self.target_changed_label = config.participant["adversarial_args"]["target_changed_label"]
+        self.noise_type = config.participant["adversarial_args"]["noise_type"]
 
         if isinstance(self.attack, DatasetAttack):
-            self.trainer.set_data(self.attack.maliciousDataset(dataset, poisoned_ratio, poisoned_percent))
+            self.trainer.set_data(self.attack.setMaliciousDataset(
+                dataset, self.poisoned_ratio, self.poisoned_percent, self.targeted, self.target_label, self.target_changed_label
+            ))
 
         if isinstance(self.attack, ModelAttack):
-            self.trainer.set_model(self.attack.maliciousModel(model, poisoned_ratio, noise_type))
+            self.trainer.set_model(self.attack.maliciousModel(model, self.poisoned_ratio, self.noise_type))
 
         self.fit_time = 0.0
         self.extra_time = 0.0
@@ -648,10 +640,6 @@ class AggregatorNode(Engine):
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         super().__init__(
             model,
@@ -659,10 +647,6 @@ class AggregatorNode(Engine):
             config,
             trainer,
             security,
-            model_poisoning,
-            poisoned_ratio,
-            poisoned_percent,
-            noise_type,
         )
 
     async def _extended_learning_cycle(self):
@@ -689,10 +673,6 @@ class ServerNode(Engine):
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         super().__init__(
             model,
@@ -700,10 +680,6 @@ class ServerNode(Engine):
             config,
             trainer,
             security,
-            model_poisoning,
-            poisoned_ratio,
-            poisoned_percent,
-            noise_type,
         )
 
     async def _extended_learning_cycle(self):
@@ -729,10 +705,6 @@ class TrainerNode(Engine):
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         super().__init__(
             model,
@@ -740,10 +712,6 @@ class TrainerNode(Engine):
             config,
             trainer,
             security,
-            model_poisoning,
-            poisoned_ratio,
-            poisoned_percent,
-            noise_type,
         )
 
     async def _extended_learning_cycle(self):
@@ -774,10 +742,6 @@ class IdleNode(Engine):
         config=Config,
         trainer=Lightning,
         security=False,
-        model_poisoning=False,
-        poisoned_ratio=0,
-        poisoned_percent=0,
-        noise_type="gaussian",
     ):
         super().__init__(
             model,
@@ -785,10 +749,6 @@ class IdleNode(Engine):
             config,
             trainer,
             security,
-            model_poisoning,
-            poisoned_ratio,
-            poisoned_percent,
-            noise_type,
         )
 
     async def _extended_learning_cycle(self):

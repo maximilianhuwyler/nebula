@@ -64,40 +64,9 @@ async def main(config):
     additional_node_status = config.participant["mobility_args"]["additional_node"]["status"]
     additional_node_round = config.participant["mobility_args"]["additional_node"]["round_start"]
 
-    attacks = config.participant["adversarial_args"]["attacks"]
-    poisoned_percent = config.participant["adversarial_args"]["poisoned_sample_percent"]
-    poisoned_ratio = config.participant["adversarial_args"]["poisoned_ratio"]
-    targeted = str(config.participant["adversarial_args"]["targeted"])
-    target_label = config.participant["adversarial_args"]["target_label"]
-    target_changed_label = config.participant["adversarial_args"]["target_changed_label"]
-    noise_type = config.participant["adversarial_args"]["noise_type"]
     iid = config.participant["data_args"]["iid"]
     partition_selection = config.participant["data_args"]["partition_selection"]
     partition_parameter = np.array(config.participant["data_args"]["partition_parameter"], dtype=np.float64)
-    label_flipping = False
-    data_poisoning = False
-    model_poisoning = False
-    # if attacks == "Label Flipping":
-    #     label_flipping = True
-    #     poisoned_ratio = 0
-    #     if targeted == "true" or targeted == "True":
-    #         targeted = True
-    #     else:
-    #         targeted = False
-    # if attacks == "Sample Poisoning":
-    #     data_poisoning = True
-    #     if targeted == "true" or targeted == "True":
-    #         targeted = True
-    #     else:
-    #         targeted = False
-    # elif attacks == "Model Poisoning":
-    #     model_poisoning = True
-    # else:
-    #     label_flipping = False
-    #     data_poisoning = False
-    #     targeted = False
-    #     poisoned_percent = 0
-    #     poisoned_ratio = 0
 
     # Adjust the total number of nodes and the index of the current node for CFL, as it doesn't require a specific partition for the server (not used for training)
     if config.participant["scenario_args"]["federation"] == "CFL":
@@ -259,14 +228,6 @@ async def main(config):
         partition_id=idx,
         partitions_number=n_nodes,
         batch_size=dataset.batch_size,
-        label_flipping=label_flipping,
-        data_poisoning=data_poisoning,
-        poisoned_percent=poisoned_percent,
-        poisoned_ratio=poisoned_ratio,
-        targeted=targeted,
-        target_label=target_label,
-        target_changed_label=target_changed_label,
-        noise_type=noise_type,
     )
 
     # - Import MNISTDatasetScikit (not torch component)
@@ -336,10 +297,6 @@ async def main(config):
         config=config,
         trainer=trainer,
         security=False,
-        model_poisoning=model_poisoning,
-        poisoned_ratio=poisoned_ratio,
-        poisoned_percent=poisoned_percent,
-        noise_type=noise_type,
     )
     await node.start_communications()
     await node.deploy_federation()
