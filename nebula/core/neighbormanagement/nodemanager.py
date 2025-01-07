@@ -25,7 +25,7 @@ class NodeManager():
         engine : "Engine",
         fastreboot=True,
     ):
-        self.topology = topology
+        self.topology = "fully"#topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
         logging.info("🌐  Initializing Node Manager")
         self._engine = engine
@@ -236,9 +236,9 @@ class NodeManager():
     def accept_model_offer(self, source, decoded_model, rounds, round, epochs, n_neighbors, loss): 
         if not self.accept_candidates_lock.locked():
             logging.info(f"🔄 Processing offer from {source}...")
-            model_accepted = self.model_handler.accept_model(decoded_model)
-            #if source == "192.168.50.8:45007":
-            #    self.model_handler.accept_model(decoded_model)
+            model_accepted = True#self.model_handler.accept_model(decoded_model)
+            if source == "192.168.50.8:45007":
+                self.model_handler.accept_model(decoded_model)
             self.model_handler.set_config(config=(rounds, round, epochs, self))
             if model_accepted:      
                 self.candidate_selector.add_candidate((source, n_neighbors, loss))
@@ -359,7 +359,7 @@ class NodeManager():
                 #await self.reconnect_to_federation()
             elif self.neighbor_policy.need_more_neighbors() and self.engine.get_sinchronized_status():
                 logging.info("Insufficient Robustness | Upgrading robustness | Searching for more connections")
-                asyncio.create_task(self.upgrade_connection_robustness())
+                #asyncio.create_task(self.upgrade_connection_robustness())
             else:
                 if not self.engine.get_sinchronized_status():
                     logging.info("Device not synchronized with federation")

@@ -463,7 +463,7 @@ class Engine:
     @event_handler(nebula_pb2.DiscoverMessage, nebula_pb2.DiscoverMessage.Action.DISCOVER_JOIN)
     async def _discover_discover_join_callback(self, source, message):
         logging.info(f"🔍  handle_discover_message | Trigger | Received discover_join message from {source} ")   
-        #self.nm.meet_node(source)
+        #TODO caso para el starter recibir antes de iniciar federacion
         if len(self.get_federation_nodes()) > 0:
             await self.trainning_in_progress_lock.acquire_async()
             model, rounds, round = await self.cm.propagator.get_model_information(source, "stable") if self.get_round() > 0 else await self.cm.propagator.get_model_information(source, "initialization")
@@ -672,6 +672,7 @@ class Engine:
                 await self.cm.send_message_to_neighbors(message)
                 await self.get_federation_ready_lock().release_async()
                 await self.create_trainer_module()
+                self.set_initialization_status(True)
             else:
                 logging.info("Federation already started")
 

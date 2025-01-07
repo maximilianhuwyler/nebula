@@ -1,5 +1,4 @@
 from nebula.core.neighbormanagement.neighborpolicies.neighborpolicy import NeighborPolicy
-from nebula.core.neighbormanagement.nodemanager import NodeManager
 from nebula.core.utils.locker import Locker
 
 class FCNeighborPolicy(NeighborPolicy):
@@ -10,7 +9,6 @@ class FCNeighborPolicy(NeighborPolicy):
         self.neighbors = set()
         self.neighbors_lock = Locker(name="neighbors_lock")
         self.nodes_known_lock = Locker(name="nodes_known_lock")
-        self._nm : NodeManager = None
         
     def need_more_neighbors(self):
         """
@@ -35,7 +33,6 @@ class FCNeighborPolicy(NeighborPolicy):
         self.neighbors_lock.release()
         for addr in config[1]:
                 self.nodes_known.add(addr)
-        self._nm = config[3]
             
     def accept_connection(self, source, joining=False):
         """
