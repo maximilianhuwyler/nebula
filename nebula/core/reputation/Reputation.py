@@ -287,36 +287,36 @@ class Reputation:
 
                     # Weights for each metric
                     if current_round is not None:
-                        if current_round >= 4:  # only for rounds 4 and later
-                            weight_to_similarity = 0.5
-                            weight_to_fraction = 0.0
-                            weight_to_message_time_message = 0.5
-                            weight_to_model_arrival_latency = 0.0
-                        elif current_round >= 5:  # only for rounds 5 and later
+                        if current_round >= 5:  # only for rounds 5 and later
                             # Weight to scenarios with delay
-                            weight_to_similarity = 0.1
-                            weight_to_fraction = 0.1
-                            weight_to_message_time_message = 0.3
-                            weight_to_model_arrival_latency = 0.5
+                            # weight_to_similarity = 0.1
+                            # weight_to_fraction = 0.1
+                            # weight_to_message_time_message = 0.1
+                            # weight_to_model_arrival_latency = 0.7
                             # Weight to scenarios with noise injection
                             # weight_to_similarity = 0.4
                             # weight_to_fraction = 0.4
                             # weight_to_message_time_message = 0.1
                             # weight_to_model_arrival_latency = 0.1
                             # Weight to scenarios with flood
-                            # weight_to_similarity = 0.1
-                            # weight_to_fraction = 0.1
-                            # weight_to_message_time_message = 0.5
-                            # weight_to_model_arrival_latency = 0.3
-                        elif current_round <= 3:  # only for rounds 0, 1, 2, 3
+                            weight_to_similarity = 0.1
+                            weight_to_fraction = 0.1
+                            weight_to_message_time_message = 0.6
+                            weight_to_model_arrival_latency = 0.2
+                        elif current_round <= 4:  # only for rounds 0, 1, 2, 3
                             weight_to_similarity = 1.0
                             weight_to_fraction = 0.0
                             weight_to_message_time_message = 0.0
                             weight_to_model_arrival_latency = 0.0
 
+                    logging.info(f"Weight to similarity: {weight_to_similarity}")
+                    logging.info(f"Weight to fraction: {weight_to_fraction}")
+                    logging.info(f"Weight to message_time_message: {weight_to_message_time_message}")
+                    logging.info(f"Weight to model_arrival_latency: {weight_to_model_arrival_latency}")
+
                     # Reputation calculation
                     reputation = (
-                        +weight_to_message_time_message * avg_messages_time_message_normalized
+                        weight_to_message_time_message * avg_messages_time_message_normalized
                         + weight_to_similarity * similarity_reputation
                         + weight_to_fraction * fraction_score_asign
                         + weight_to_model_arrival_latency * avg_model_arrival_latency
@@ -1018,10 +1018,10 @@ class Reputation:
 
             for i, n_round in enumerate(rounds, start=1):
                 rep = Reputation.reputation_history[key][n_round]
-                decay_factor = Reputation.calculate_decay_rate(rep) ** (i * 2)  # Aument the decay factor * 2
+                decay_factor = Reputation.calculate_decay_rate(rep) ** i
                 total_reputation += rep * decay_factor
                 total_weights += decay_factor
-                # logging.info(f"Round: {round}, Reputation: {rep}, Decay: {decay_factor}, Total reputation: {total_reputation}")
+                logging.info(f"Round: {n_round}, Reputation: {rep}, Decay: {decay_factor}, Total reputation: {total_reputation}")
 
             avg_reputation = total_reputation / total_weights
             if total_weights > 0:
@@ -1048,11 +1048,11 @@ class Reputation:
         if reputation > 0.8:
             return 0.9  # Muy bajo decaimiento
         elif reputation > 0.6:
-            return 0.7  # Bajo decaimiento
+            return 0.6  # Bajo decaimiento
         elif reputation > 0.4:
-            return 0.5  # Moderado decaimiento
+            return 0.3  # Alto decaimiento
         else:
-            return 0.2  # Alto decaimiento
+            return 0.1  # Muy alto decaimiento
 
     @staticmethod
     def read_similarity_file(file_path, nei):
