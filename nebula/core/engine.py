@@ -25,7 +25,6 @@ import sys
 
 from nebula.config.config import Config
 from nebula.core.training.lightning import Lightning
-from nebula.core.utils.helper import cosine_metric
 
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -505,7 +504,7 @@ class Engine:
             if self.reputation[nei]["reputation"] is not None:
                 logging.info(f"Reputation of node {nei}: {self.reputation[nei]['reputation']}")
                 if self.reputation[nei]["reputation"] <= 0.6:
-                    self.rejected_nodes.add(nei)
+                    # self.rejected_nodes.add(nei)
                     logging.info(f"Rejected nodes: {self.rejected_nodes}")
                 elif 0.6 < self.reputation[nei]["reputation"] < 0.8:
                     logging.info(f"Change weight node: {nei}")
@@ -540,16 +539,36 @@ class Engine:
                             round=data["round"],
                         )
 
+                        metrics_data = {
+                            "addr": self.addr.split(":")[0].strip(),
+                            "nei": nei.split(":")[0].strip(),
+                            "round": self.round,
+                            "reputation_with_feedback": data["reputation"],
+                        }
+
+                        self.reputation_instance.metrics(
+                            self.experiment_name,
+                            metrics_data,
+                            self.addr.split(":")[0].strip(),
+                            nei.split(":")[0].strip(),
+                            "reputation",
+                            update_field="reputation_with_feedback",
+                        )
+
                         for neighbor in neighbors_to_send:
                             logging.info(
                                 f"Sending reputation to node {nei} from node {neighbor} with reputation {data['reputation']}"
                             )
-                            self.cm.store_send_timestamp(nei, current_round, "reputation")
+                            # self.cm.store_send_timestamp(nei, current_round, "reputation")
                             await self.cm.send_message_to_neighbors(message_data, [neighbor])
                 else:
                     logging.info(f"Reputation already sent to node {nei}")
 
     async def include_feedback_in_reputation(self):
+        data = None
+        weight_current_reputation = 0.9
+        weight_feedback = 0.1
+
         if self._cm.reputation_with_all_feedback is not None:
             current_round = self.get_round()
             for (current_node, node_ip, round_num), scores in self._cm.reputation_with_all_feedback.items():
@@ -560,6 +579,7 @@ class Engine:
                 logging.info(
                     f"current_node: {current_node} | node_ip: {node_ip} | round_num: {round_num} | scores: {scores}"
                 )
+
                 if scores:
                     avg_feedback = sum(scores) / len(scores)
                     logging.info(f"Receive feedback to node {node_ip} with average score {avg_feedback}")
@@ -573,7 +593,9 @@ class Engine:
                         return False
 
                     if current_reputation:
-                        combined_reputation = (current_reputation + avg_feedback) / 2
+                        combined_reputation = (current_reputation * weight_current_reputation) + (
+                            avg_feedback * weight_feedback
+                        )
                         logging.info(
                             f"Combined reputation for node {node_ip} in round {round_num}: {combined_reputation}"
                         )
@@ -591,7 +613,7 @@ class Engine:
 
             return True
         else:
-            return False
+            return False, None
 
     async def _learning_cycle(self):
         while self.round is not None and self.round < self.total_rounds:
@@ -665,50 +687,50 @@ class Engine:
         """
         pass
 
-    def reputation_calculation(self, aggregated_models_weights):
-        cossim_threshold = 0.5
-        loss_threshold = 0.5
+    # def reputation_calculation(self, aggregated_models_weights):
+    #     cossim_threshold = 0.5
+    #     loss_threshold = 0.5
 
-        current_models = {}
-        for subnodes in aggregated_models_weights.keys():
-            sublist = subnodes.split()
-            submodel = aggregated_models_weights[subnodes][0]
-            for node in sublist:
-                current_models[node] = submodel
+    #     current_models = {}
+    #     for subnodes in aggregated_models_weights.keys():
+    #         sublist = subnodes.split()
+    #         submodel = aggregated_models_weights[subnodes][0]
+    #         for node in sublist:
+    #             current_models[node] = submodel
 
-        malicious_nodes = []
-        reputation_score = {}
-        local_model = self.trainer.get_model_parameters()
-        untrusted_nodes = list(current_models.keys())
-        logging.info(f"reputation_calculation untrusted_nodes at round {self.round}: {untrusted_nodes}")
+    #     malicious_nodes = []
+    #     reputation_score = {}
+    #     local_model = self.trainer.get_model_parameters()
+    #     untrusted_nodes = list(current_models.keys())
+    #     logging.info(f"reputation_calculation untrusted_nodes at round {self.round}: {untrusted_nodes}")
 
-        for untrusted_node in untrusted_nodes:
-            logging.info(f"reputation_calculation untrusted_node at round {self.round}: {untrusted_node}")
-            logging.info(f"reputation_calculation self.get_name() at round {self.round}: {self.get_name()}")
-            if untrusted_node != self.get_name():
-                untrusted_model = current_models[untrusted_node]
-                cossim = cosine_metric(local_model, untrusted_model, similarity=True)
-                logging.info(f"reputation_calculation cossim at round {self.round}: {untrusted_node}: {cossim}")
-                self.trainer._logger.log_data({f"Reputation/cossim_{untrusted_node}": cossim}, step=self.round)
+    #     for untrusted_node in untrusted_nodes:
+    #         logging.info(f"reputation_calculation untrusted_node at round {self.round}: {untrusted_node}")
+    #         logging.info(f"reputation_calculation self.get_name() at round {self.round}: {self.get_name()}")
+    #         if untrusted_node != self.get_name():
+    #             untrusted_model = current_models[untrusted_node]
+    #             cossim = cosine_metric(local_model, untrusted_model, similarity=True)
+    #             logging.info(f"reputation_calculation cossim at round {self.round}: {untrusted_node}: {cossim}")
+    #             self.trainer._logger.log_data({f"Reputation/cossim_{untrusted_node}": cossim}, step=self.round)
 
-                avg_loss = self.trainer.validate_neighbour_model(untrusted_model)
-                logging.info(f"reputation_calculation avg_loss at round {self.round} {untrusted_node}: {avg_loss}")
-                self.trainer._logger.log_data({f"Reputation/avg_loss_{untrusted_node}": avg_loss}, step=self.round)
-                reputation_score[untrusted_node] = (cossim, avg_loss)
+    #             avg_loss = self.trainer.validate_neighbour_model(untrusted_model)
+    #             logging.info(f"reputation_calculation avg_loss at round {self.round} {untrusted_node}: {avg_loss}")
+    #             self.trainer._logger.log_data({f"Reputation/avg_loss_{untrusted_node}": avg_loss}, step=self.round)
+    #             reputation_score[untrusted_node] = (cossim, avg_loss)
 
-                if cossim < cossim_threshold or avg_loss > loss_threshold:
-                    malicious_nodes.append(untrusted_node)
-                else:
-                    self._secure_neighbors.append(untrusted_node)
+    #             if cossim < cossim_threshold or avg_loss > loss_threshold:
+    #                 malicious_nodes.append(untrusted_node)
+    #             else:
+    #                 self._secure_neighbors.append(untrusted_node)
 
-        return malicious_nodes, reputation_score
+    #     return malicious_nodes, reputation_score
 
-    async def send_reputation(self, malicious_nodes):
-        logging.info(f"Sending REPUTATION to the rest of the topology: {malicious_nodes}")
-        message = self.cm.mm.generate_federation_message(
-            nebula_pb2.FederationMessage.Action.REPUTATION, malicious_nodes
-        )
-        await self.cm.send_message_to_neighbors(message)
+    # async def send_reputation(self, malicious_nodes):
+    # logging.info(f"Sending REPUTATION to the rest of the topology: {malicious_nodes}")
+    # message = self.cm.mm.generate_federation_message(
+    #     nebula_pb2.FederationMessage.Action.REPUTATION, malicious_nodes
+    # )
+    # await self.cm.send_message_to_neighbors(message)
 
 
 class MaliciousNode(Engine):
@@ -747,7 +769,7 @@ class MaliciousNode(Engine):
         if type(self.attack).__name__ == "FloodingAttack":
             logging.info("Running Flooding Attack")
             if self.round in range(self.round_start_attack, self.round_stop_attack):
-                await self.attack.attack(self.cm, self.addr, self.round, repetitions=10, interval=0.05)
+                await self.attack.attack(self.cm, self.addr, self.round, repetitions=2, interval=0.05)
 
         if type(self.attack).__name__ == "DelayerAttack":
             logging.info("Running Delayer Attack")

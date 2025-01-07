@@ -172,8 +172,8 @@ class DelayerAttack(Attack):
     async def attack(self):
         logging.info("[DelayerAttack] Performing delayer attack")
 
-        logging.info("Delaying time from 15 seconds")
-        time.sleep(15)
+        logging.info("Delaying time from 30 seconds")
+        time.sleep(30)
         logging.info("Delaying time finished")
 
 
@@ -186,11 +186,13 @@ class FloodingAttack(Attack):
     def __init__(self):
         super().__init__()
 
-    async def attack(self, cm: CommunicationsManager, addr, num_round, repetitions=5, interval=0.1):
+    async def attack(self, cm: CommunicationsManager, addr, num_round, repetitions=2, interval=0.05):
         logging.info("[FloodingAttack] Performing flood attack")
         neighbors = set(await cm.get_addrs_current_connections(only_direct=True))
         logging.info(f"Neighbors: {neighbors}")
 
+        logging.info(f"Round: {num_round}")
+        logging.info(f"Interval: {interval}")
         logging.info(f"Repetitions: {repetitions}")
         scaled_repetitions = len(neighbors) * repetitions
         logging.info(f"Total repetitions: {scaled_repetitions}")
@@ -205,4 +207,4 @@ class FloodingAttack(Attack):
                 await cm.send_message_to_neighbors(message_data, neighbors={nei})
                 logging.info(f"Flood attack message sent to {nei} - Attempt {i + 1}/{repetitions}.")
                 await asyncio.sleep(interval)
-                cm.store_send_timestamp(nei, num_round, "flood_attack")
+                # cm.store_send_timestamp(nei, num_round, "flood_attack")

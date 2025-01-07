@@ -86,6 +86,7 @@ class CommunicationsManager:
 
         # Reputation
         self.reputation_instance = Reputation(self.engine)
+        self._model_arrival_latency_data = self.reputation_instance.model_arrival_latency_data
         self.reputation_with_all_feedback = {}
         self.message_timestamps = {}
         self.fraction_of_params_changed = {}
@@ -204,7 +205,7 @@ class CommunicationsManager:
         )
         try:
             await self.engine.event_manager.trigger_event(source, message)
-            self.store_receive_timestamp(source, "federation")
+            # self.store_receive_timestamp(source, "federation")
         except Exception as e:
             logging.exception(
                 f"📝  handle_federation_message | Error while processing: {message.action} {message.arguments} | {e}"
@@ -266,15 +267,54 @@ class CommunicationsManager:
                         )
 
                 if cosine_value < 0.6:
+                    logging.info("🤖  handle_model_message | Model similarity is less than 0.6")
                     self.engine.rejected_nodes.add(source)
-
-                # Manage communication latency
-                self.store_receive_timestamp(source, "model", message.round)
-                self.calculate_latency(source, "model")
 
                 # Manage parameters of models
                 parameters_local = self.engine.trainer.get_model_parameters()
                 self.fraction_of_parameters_changed(source, parameters_local, decoded_model, message.round)
+
+                # Manage model_arrival_latency latency
+                start_time = time.time()
+                round_id = message.round
+                if round_id not in self._model_arrival_latency_data:
+                    self._model_arrival_latency_data[round_id] = {}
+
+                if "time_0" not in self._model_arrival_latency_data[round_id]:
+                    self._model_arrival_latency_data[round_id]["time_0"] = {"time": start_time, "source": source}
+                    logging.info(f"start_time: {start_time} of source {self.addr} for round {round_id}")
+
+                relative_time = start_time - self._model_arrival_latency_data[round_id]["time_0"]["time"]
+
+                if source not in self._model_arrival_latency_data[round_id]:
+                    self._model_arrival_latency_data[round_id][source] = {
+                        "start_time": start_time,
+                        "relative_time": relative_time,
+                    }
+                    logging.info(f"self.model_arrival_latency_data: {self._model_arrival_latency_data}")
+                    logging.info(f"Node {source} | Time taken relative to time_0: {relative_time:.3f} seconds")
+
+                if message.round == current_round:
+                    save_data(
+                        self.config.participant["scenario_args"]["name"],
+                        "model_arrival_latency",
+                        source,
+                        self.get_addr(),
+                        num_round=message.round,
+                        latency=relative_time,
+                    )
+                # else:
+                # logging.info(f"🤖  handle_model_message | Received a model from a different round | Model round: {message.round} | Current round: {current_round}")
+                # if message.round > current_round:
+                # logging.info(f"🤖  handle_model_message | message.round > current_round")
+                # save_data(
+                #     self.config.participant["scenario_args"]["name"],
+                #     "model_arrival_latency",
+                #     source,
+                #     self.get_addr(),
+                #     num_round=message.round,
+                #     latency=relative_time,
+                # )
 
             if message.round != current_round and message.round != -1:
                 logging.info(
@@ -301,7 +341,7 @@ class CommunicationsManager:
                 # non-starting nodes receive the initialized model from the starting node
                 if not self.engine.get_federation_ready_lock().locked() or self.engine.get_initialization_status():
                     decoded_model = self.engine.trainer.deserialize_model(message.parameters)
-                    
+
                     await self.engine.aggregator.include_model_in_buffer(
                         decoded_model,
                         message.weight,
@@ -783,15 +823,15 @@ class CommunicationsManager:
             logging.exception(f"❗️  Cannot send message {message} to {dest_addr}. Error: {e!s}")
             await self.disconnect(dest_addr, mutual_disconnection=False)
 
-    def store_send_timestamp(self, dest_addr, round_number, type_message):
-        send_timestamp = datetime.now().strftime("%H:%M:%S")
-        self.message_timestamps[(self.addr, dest_addr, type_message)] = {
-            "send": send_timestamp,
-            "receive": None,
-            "latency": None,
-            "round": round_number,
-            "type": type_message,
-        }
+    # def store_send_timestamp(self, dest_addr, round_number, type_message):
+    #     send_timestamp = datetime.now().strftime("%H:%M:%S")
+    #     self.message_timestamps[(self.addr, dest_addr, type_message)] = {
+    #         "send": send_timestamp,
+    #         "receive": None,
+    #         "latency": None,
+    #         "round": round_number,
+    #         "type": type_message,
+    #     }
 
     def store_receive_timestamp(self, source, type_message, round=None):
         current_time = time.time()
@@ -810,40 +850,40 @@ class CommunicationsManager:
                 current_round=current_round,
             )
 
-        receive_timestamp = datetime.now().strftime("%H:%M:%S")
-        if (self.addr, source, type_message) in self.message_timestamps:
-            self.message_timestamps[(self.addr, source, type_message)]["receive"] = receive_timestamp
+    #     receive_timestamp = datetime.now().strftime("%H:%M:%S")
+    #     if (self.addr, source, type_message) in self.message_timestamps:
+    #         self.message_timestamps[(self.addr, source, type_message)]["receive"] = receive_timestamp
 
-    def calculate_latency(self, source, type_message):
-        if (self.addr, source, type_message) in self.message_timestamps:
-            send_time = self.message_timestamps[(self.addr, source, type_message)]["send"]
-            receive_time = self.message_timestamps[(self.addr, source, type_message)]["receive"]
-            round_number = self.message_timestamps[(self.addr, source, type_message)]["round"]
-            current_round = self.get_round()
+    # def calculate_latency(self, source, type_message):
+    #     if (self.addr, source, type_message) in self.message_timestamps:
+    #         send_time = self.message_timestamps[(self.addr, source, type_message)]["send"]
+    #         receive_time = self.message_timestamps[(self.addr, source, type_message)]["receive"]
+    #         round_number = self.message_timestamps[(self.addr, source, type_message)]["round"]
+    #         current_round = self.get_round()
 
-            if send_time and receive_time and type_message == "model":
-                send_time = datetime.strptime(send_time, "%H:%M:%S")
-                receive_time = datetime.strptime(receive_time, "%H:%M:%S")
+    #         if send_time and receive_time and type_message == "model":
+    #             send_time = datetime.strptime(send_time, "%H:%M:%S")
+    #             receive_time = datetime.strptime(receive_time, "%H:%M:%S")
 
-                latency = (receive_time - send_time).total_seconds()
-                logging.info(
-                    f"🕒  Latency from {source} with type message {type_message} in round {round_number}: {latency}"
-                )
+    #             latency = (receive_time - send_time).total_seconds()
+    #             logging.info(
+    #                 f"🕒  Latency from {source} with type message {type_message} in round {round_number}: {latency}"
+    #             )
 
-                self.message_timestamps[(self.addr, source, type_message)]["latency"] = latency
-                save_data(
-                    self.config.participant["scenario_args"]["name"],
-                    "communication",
-                    source,
-                    self.addr,
-                    num_round=round_number,
-                    time=latency,
-                    type_message=type_message,
-                    current_round=current_round,
-                )
+    #             self.message_timestamps[(self.addr, source, type_message)]["latency"] = latency
+    #             save_data(
+    #                 self.config.participant["scenario_args"]["name"],
+    #                 "communication",
+    #                 source,
+    #                 self.addr,
+    #                 num_round=round_number,
+    #                 time=latency,
+    #                 type_message=type_message,
+    #                 current_round=current_round,
+    #             )
 
-                return latency
-        return None
+    #             return latency
+    #     return None
 
     async def send_model(self, dest_addr, round, serialized_model, weight=1):
         async with self.semaphore_send_model:
@@ -853,8 +893,8 @@ class CommunicationsManager:
                     logging.info(f"❗️  Connection with {dest_addr} not found")
                     return
 
-                if round != -1:
-                    self.store_send_timestamp(dest_addr, round, "model")
+                # if round != -1:
+                #     self.store_send_timestamp(dest_addr, round, "model")
 
                 logging.info(
                     f"Sending model to {dest_addr} with round {round}: weight={weight} | size={sys.getsizeof(serialized_model) / (1024** 2) if serialized_model is not None else 0} MB"
