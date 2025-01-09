@@ -596,11 +596,11 @@ class MaliciousNode(Engine):
 
         if isinstance(self.attack, DatasetAttack):
             self.trainer.set_data(self.attack.setMaliciousDataset(
-                dataset, self.poisoned_ratio, self.poisoned_percent, self.targeted, self.target_label, self.target_changed_label
+                dataset, self.poisoned_ratio, self.poisoned_percent, self.targeted, self.target_label, self.target_changed_label, self.noise_type
             ))
 
         if isinstance(self.attack, ModelAttack):
-            self.trainer.set_model(self.attack.maliciousModel(model, self.poisoned_ratio, self.noise_type))
+            self.trainer.set_model(self.attack.setMaliciousModel(model, self.poisoned_ratio, self.noise_type))
 
         self.fit_time = 0.0
         self.extra_time = 0.0

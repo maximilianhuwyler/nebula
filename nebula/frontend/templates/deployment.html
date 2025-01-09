@@ -529,6 +529,15 @@
                                 placeholder="% noise in each poisoned sample" min="0" value="0"
                                 style="display: inline; width: 80%">
                         </div>
+                        <h5 id="noise-type-title" class="step-title" style="display: none;">noise type</h5>
+                        <div class="form-check form-check-inline" id="noise-type-container" style="display: none;">
+                            <select class="form-control" id="noise-type-select" name="noise-type"
+                            style="display: inline; width: 80%">
+                                <option selected>Salt</option>
+                                <option>Gaussian</option>
+                                <option>S&P</option>
+                            </select>
+                        </div>
                         <h5 id="targetedSwitch-title" class="step-title" style="display: none;">targeted</h5>
                         <div class="form-check form-check-inline" id="targetedSwitch-container" style="display: none;">
                             <div class="form-check form-switch" style="margin-bottom: 20px;">
@@ -1057,6 +1066,7 @@
             data["poisoned_node_percent"] = document.getElementById("poisoned-node-percent").value
             data["poisoned_sample_percent"] = document.getElementById("poisoned-sample-percent").value
             data["poisoned_noise_percent"] = document.getElementById("poisoned-noise-percent").value
+            data["noise_type"] = document.getElementById("noise-type-select").value;
             data["targeted"] = document.getElementById("targetedSwitch").checked ? true : false
             data["target_label"] = document.getElementById("target-label").value
             data["target_changed_label"] = document.getElementById("target-changed-label").value
@@ -1170,9 +1180,10 @@
                 }
                 document.getElementById("poisoned-sample-percent").value = data["poisoned_sample_percent"];
                 document.getElementById("poisoned-noise-percent").value = data["poisoned_noise_percent"];
-                document.getElementById("targetedSwitch").checked = data["targeted"]
-                document.getElementById("target-label").value = data["target_label"]
-                document.getElementById("target-changed-label").value = data["target_changed_label"]
+                document.getElementById("noise-type-select").value = data["noise_type"];
+                document.getElementById("targetedSwitch").checked = data["targeted"];
+                document.getElementById("target-label").value = data["target_label"];
+                document.getElementById("target-changed-label").value = data["target_changed_label"];
                 // Step 12
                 document.getElementById("with-reputation-btn").checked = data["with_reputation"];
                 if (data["with_reputation"]) {
@@ -2550,6 +2561,8 @@
                 document.getElementById("poisoned-sample-percent-container").style.display = "none";
                 document.getElementById("poisoned-noise-title").style.display = "none";
                 document.getElementById("poisoned-noise-percent-container").style.display = "none";
+                document.getElementById("noise-type-title").style.display = "none";
+                document.getElementById("noise-type-container").style.display = "none";
                 document.getElementById("targetedSwitch").checked = false;
                 document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
                 document.getElementById("targetedSwitch-title").style.display = "none";
@@ -2561,24 +2574,14 @@
                 document.getElementById("poisoned-sample-percent").value = 0;
                 document.getElementById("poisoned-sample-title").style.display = "block";
                 document.getElementById("poisoned-sample-percent-container").style.display = "block";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+                document.getElementById("noise-type-title").style.display = "none";
+                document.getElementById("noise-type-container").style.display = "none";
                 document.getElementById("targetedSwitch").checked = false;
                 document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
                 document.getElementById("targetedSwitch-title").style.display = "block";
                 document.getElementById("targetedSwitch-container").style.display = "block";
-                document.getElementById("poisoned-noise-title").style.display = "none";
-                document.getElementById("poisoned-noise-percent-container").style.display = "none";
-            }
-            else if(this.value == "GLLNeuronInversionAttack" || this.value == "NoiseInjectionAttack" || this.value == "SwappingWeightsAttack" || this.value == "DelayerAttack"){
-                document.getElementById("poisoned-node-title").style.display = "block";
-                document.getElementById("poisoned-node-percent-container").style.display = "block";
-                document.getElementById("poisoned-sample-title").style.display = "none";
-                document.getElementById("poisoned-sample-percent-container").style.display = "none";
-                document.getElementById("poisoned-noise-title").style.display = "none";
-                document.getElementById("poisoned-noise-percent-container").style.display = "none";
-                document.getElementById("targetedSwitch").checked = false;
-                document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
-                document.getElementById("targetedSwitch-title").style.display = "none";
-                document.getElementById("targetedSwitch-container").style.display = "none";
             }
             else if(this.value == "Sample Poisoning"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2587,6 +2590,9 @@
                 document.getElementById("poisoned-sample-percent-container").style.display = "block";
                 document.getElementById("poisoned-noise-title").style.display = "block";
                 document.getElementById("poisoned-noise-percent-container").style.display = "block";
+                document.getElementById("noise-type-title").style.display = "block";
+                document.getElementById("noise-type-container").style.display = "block";
+                document.getElementById("noise-type-select").value = "Salt";
                 document.getElementById("targetedSwitch").checked = false;
                 document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
                 document.getElementById("targetedSwitch-title").style.display = "block";
@@ -2595,14 +2601,31 @@
             else if(this.value == "Model Poisoning"){
                 document.getElementById("poisoned-node-title").style.display = "block";
                 document.getElementById("poisoned-node-percent-container").style.display = "block";
-                document.getElementById("poisoned-sample-title").style.display = "block";
-                document.getElementById("poisoned-sample-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-title").style.display = "none";
+                document.getElementById("poisoned-sample-percent-container").style.display = "none";
                 document.getElementById("poisoned-noise-title").style.display = "block";
                 document.getElementById("poisoned-noise-percent-container").style.display = "block";
+                document.getElementById("noise-type-select").value = "Gaussian";
+                document.getElementById("noise-type-title").style.display = "block";
+                document.getElementById("noise-type-container").style.display = "block";
                 document.getElementById("targetedSwitch").checked = false;
                 document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
-                document.getElementById("targetedSwitch-title").style.display = "block";
-                document.getElementById("targetedSwitch-container").style.display = "block";
+                document.getElementById("targetedSwitch-title").style.display = "none";
+                document.getElementById("targetedSwitch-container").style.display = "none";
+            }
+            else if(this.value == "GLLNeuronInversionAttack" || this.value == "NoiseInjectionAttack" || this.value == "SwappingWeightsAttack" || this.value == "DelayerAttack"){
+                document.getElementById("poisoned-node-title").style.display = "block";
+                document.getElementById("poisoned-node-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-title").style.display = "none";
+                document.getElementById("poisoned-sample-percent-container").style.display = "none";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+                document.getElementById("noise-type-title").style.display = "none";
+                document.getElementById("noise-type-container").style.display = "none";
+                document.getElementById("targetedSwitch").checked = false;
+                document.getElementById("targetedSwitch").dispatchEvent(new Event('change'));
+                document.getElementById("targetedSwitch-title").style.display = "none";
+                document.getElementById("targetedSwitch-container").style.display = "none";
             }
         });
     </script>

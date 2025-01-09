@@ -168,9 +168,6 @@ class DelayerAttack(BehaviourAttack):
 
 
 class DatasetAttack:
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return self.attack(*args, **kwds)
-
     def SetMaliciousDataset(self):
         raise NotImplementedError
 
@@ -181,7 +178,7 @@ class LabelFlippingAttack(DatasetAttack):
         self.dataset = None
 
     def setMaliciousDataset(
-        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label
+        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type
     ):
         logging.info(f"[LabelFlippingAttack] Performing Label Flipping attack targeted {targeted}")
         self.dataset = DataModule(
@@ -200,7 +197,7 @@ class LabelFlippingAttack(DatasetAttack):
             targeted=targeted,
             target_label=target_label,
             target_changed_label=target_changed_label,
-            noise_type="salt",
+            noise_type=noise_type,
         )
         return self.dataset
 
@@ -211,7 +208,7 @@ class SamplePoisoningAttack(DatasetAttack):
         self.dataset = None
 
     def setMaliciousDataset(
-        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label
+        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type
     ):
         logging.info("[SamplePoisoningAttack] Performing Sample Poisoning attack")
         self.dataset = DataModule(
@@ -230,7 +227,7 @@ class SamplePoisoningAttack(DatasetAttack):
             targeted=targeted,
             target_label=target_label,
             target_changed_label=target_changed_label,
-            noise_type="salt",
+            noise_type=noise_type,
         )
         return self.dataset
 
@@ -241,9 +238,6 @@ class SamplePoisoningAttack(DatasetAttack):
 
 
 class ModelAttack:
-    def maliciousModel(self, model, poisoned_ratio):
-        raise NotImplementedError
-
     def SetMaliciousModel(self):
         raise NotImplementedError
 

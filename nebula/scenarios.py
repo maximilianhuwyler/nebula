@@ -51,6 +51,7 @@ class Scenario:
         poisoned_node_percent,
         poisoned_sample_percent,
         poisoned_noise_percent,
+        noise_type,
         targeted,
         target_label,
         target_changed_label,
@@ -100,6 +101,7 @@ class Scenario:
             attacks (list): List of attacks.
             poisoned_node_percent (float): Percentage of poisoned nodes.
             poisoned_sample_percent (float): Percentage of poisoned samples.
+            noise_type (str): The type of noise applied by the attack.
             targeted (bool): Indicator if the attack is targeted.
             target_label (int): The label to change when `targeted` is True
             target_changed_label (int): The label to which `target_label` will be changed 
@@ -145,6 +147,7 @@ class Scenario:
         self.poisoned_node_percent = poisoned_node_percent
         self.poisoned_sample_percent = poisoned_sample_percent
         self.poisoned_noise_percent = poisoned_noise_percent
+        self.noise_type = noise_type.lower()
         self.targeted = targeted
         self.target_label = target_label
         self.target_changed_label = target_changed_label
@@ -172,6 +175,7 @@ class Scenario:
         poisoned_node_percent,
         poisoned_sample_percent,
         poisoned_noise_percent,
+        noise_type,
         targeted,
         target_label,
         target_changed_label
@@ -218,6 +222,7 @@ class Scenario:
             nodes[node]["attacks"] = node_att
             nodes[node]["poisoned_sample_percent"] = attack_sample_percent
             nodes[node]["poisoned_ratio"] = poisoned_ratio
+            nodes[node]["noise_type"] = noise_type
             nodes[node]["targeted"] = targeted
             nodes[node]["target_label"] = target_label
             nodes[node]["target_changed_label"] = target_changed_label
@@ -317,6 +322,7 @@ class ScenarioManagement:
             int(self.scenario.poisoned_node_percent),
             int(self.scenario.poisoned_sample_percent),
             int(self.scenario.poisoned_noise_percent),
+            self.scenario.noise_type,
             self.scenario.targeted,
             int(self.scenario.target_label),
             int(self.scenario.target_changed_label)
@@ -365,6 +371,7 @@ class ScenarioManagement:
             participant_config["adversarial_args"]["attacks"] = node_config["attacks"]
             participant_config["adversarial_args"]["poisoned_sample_percent"] = node_config["poisoned_sample_percent"]
             participant_config["adversarial_args"]["poisoned_ratio"] = node_config["poisoned_ratio"]
+            participant_config["adversarial_args"]["noise_type"] = node_config["noise_type"]
             participant_config["adversarial_args"]["targeted"] = node_config["targeted"]
             participant_config["adversarial_args"]["target_label"] = node_config["target_label"]
             participant_config["adversarial_args"]["target_changed_label"] = node_config["target_changed_label"]
