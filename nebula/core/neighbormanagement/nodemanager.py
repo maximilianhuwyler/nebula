@@ -23,7 +23,7 @@ class NodeManager():
         model_handler,
         push_acceleration,
         engine : "Engine",
-        fastreboot=True,
+        fastreboot=False,
     ):
         self.topology = "fully"#topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
@@ -359,7 +359,7 @@ class NodeManager():
                 #await self.reconnect_to_federation()
             elif self.neighbor_policy.need_more_neighbors() and self.engine.get_sinchronized_status():
                 logging.info("Insufficient Robustness | Upgrading robustness | Searching for more connections")
-                #asyncio.create_task(self.upgrade_connection_robustness())
+                asyncio.create_task(self.upgrade_connection_robustness())
             else:
                 if not self.engine.get_sinchronized_status():
                     logging.info("Device not synchronized with federation")
