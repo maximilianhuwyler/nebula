@@ -41,7 +41,7 @@ def create_attack(attack_name):
 
 
 ###################
-#Behaviour Attacks#
+# Behaviour Attacks#
 ###################
 
 
@@ -163,14 +163,14 @@ class DelayerAttack(BehaviourAttack):
 
 
 #################
-#Dataset Attacks#
+# Dataset Attacks#
 #################
 
 
 class DatasetAttack:
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.attack(*args, **kwds)
-    
+
     def SetMaliciousDataset(self):
         raise NotImplementedError
 
@@ -180,7 +180,9 @@ class LabelFlippingAttack(DatasetAttack):
         super().__init__()
         self.dataset = None
 
-    def setMaliciousDataset(self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label):
+    def setMaliciousDataset(
+        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label
+    ):
         logging.info(f"[LabelFlippingAttack] Performing Label Flipping attack targeted {targeted}")
         self.dataset = DataModule(
             train_set=dataset.train_set,
@@ -208,7 +210,9 @@ class SamplePoisoningAttack(DatasetAttack):
         super().__init__()
         self.dataset = None
 
-    def setMaliciousDataset(self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label):
+    def setMaliciousDataset(
+        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label
+    ):
         logging.info("[SamplePoisoningAttack] Performing Sample Poisoning attack")
         self.dataset = DataModule(
             train_set=dataset.train_set,
@@ -232,12 +236,15 @@ class SamplePoisoningAttack(DatasetAttack):
 
 
 ###############
-#Model Attacks#
+# Model Attacks#
 ###############
 
 
 class ModelAttack:
     def maliciousModel(self, model, poisoned_ratio):
+        raise NotImplementedError
+
+    def SetMaliciousModel(self):
         raise NotImplementedError
 
 
@@ -246,7 +253,7 @@ class ModelPoisonAttack(ModelAttack):
         super().__init__()
         self.model = None
 
-    def maliciousModel(self, model, poisoned_ratio, noise_type):
+    def setMaliciousModel(self, model, poisoned_ratio, noise_type):
         logging.info("[ModelPoisonAttack] Performing model poison attack")
         poisoned_state_dict = modelPoison(OrderedDict(model.state_dict()), poisoned_ratio, noise_type)
         model.load_state_dict(poisoned_state_dict)
