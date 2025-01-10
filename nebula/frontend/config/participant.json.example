@@ -51,7 +51,7 @@
     "reordering": "0%"
   },
   "adaptive_args": {
-    "model_similarity": false
+    "model_similarity": true
   },
   "mobility_args": {
     "latitude": "",

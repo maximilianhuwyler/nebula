@@ -24,6 +24,7 @@ class NodeManager():
         push_acceleration,
         engine : "Engine",
         fastreboot=False,
+        momentum=False,
     ):
         self.topology = "fully"#topology
         print_msg_box(msg=f"Starting NodeManager module...\nTopology: {self.topology}", indent=2, title="NodeManager module")
