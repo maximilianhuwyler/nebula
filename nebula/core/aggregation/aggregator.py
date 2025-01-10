@@ -120,6 +120,7 @@ class Aggregator(ABC):
         await self._aggregation_done_lock.release_async()
 
     async def _add_pending_model(self, model, weight, source):
+        logging.info(f"🔄  _add_pending_model | rejected_nodes = {self.engine.rejected_nodes}")
         valid_federation_nodes = self._federation_nodes - self.engine.rejected_nodes
         if len(self._federation_nodes) <= len(self.get_nodes_pending_models_to_aggregate()):
             logging.info("🔄  _add_pending_model | Ignoring model...")

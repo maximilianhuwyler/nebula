@@ -504,7 +504,7 @@ class Engine:
             if self.reputation[nei]["reputation"] is not None:
                 logging.info(f"Reputation of node {nei}: {self.reputation[nei]['reputation']}")
                 if self.reputation[nei]["reputation"] <= 0.6:
-                    # self.rejected_nodes.add(nei)
+                    self.rejected_nodes.add(nei)
                     logging.info(f"Rejected nodes: {self.rejected_nodes}")
                 elif 0.6 < self.reputation[nei]["reputation"] < 0.8:
                     logging.info(f"Change weight node: {nei}")

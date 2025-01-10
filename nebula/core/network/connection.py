@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING, Any
 import lz4.frame
 from geopy import distance
 
+from nebula.core.reputation.Reputation import (
+    Reputation,
+)
+
 if TYPE_CHECKING:
     from nebula.core.network.communications import CommunicationsManager
 
@@ -73,6 +77,9 @@ class Connection:
         self.HEADER_SIZE = 21
         self.MAX_CHUNK_SIZE = 1024  # 1 KB
         self.BUFFER_SIZE = 1024  # 1 KB
+
+        self.reputation_instance = Reputation(self.cm.engine)
+        self._model_arrival_latency_data = self.reputation_instance.model_arrival_latency_data
 
         logging.info(
             f"Connection [established]: {self.addr} (id: {self.id}) (active: {self.active}) (direct: {self.direct})"
@@ -283,29 +290,52 @@ class Connection:
                     f"Received chunk {chunk_index} of message {message_id.hex()} | size: {len(chunk_data)} bytes"
                 )
 
-                # if chunk_index == 0:
-                # if round_id is not None:
-                #     if round_id >= 0:
-                #         start_time = time.time()
-                #         chunk_bytes = chunk_data.tobytes()
-                #         # logging.info(f"chunk data: {chunk_bytes}")
-                #         comparation_with = b"\x01\x00\x00\x00x\x9c\x00"
-                #         if chunk_bytes[: len(comparation_with)] == comparation_with:
-                #             if round_id not in self._chunk_data:
-                #                  self._chunk_data[round_id] = {}
+                round_id = self.cm.get_round()
+                source = self.addr
+                comparation_with = b"\x01\x00\x00\x00x\x9c\x00"
 
-                # if "time_0" not in self._chunk_data[round_id]:
-                #     self._chunk_data[round_id]["time_0"] = {"time": start_time, "source": source}
+                if round_id is not None and round_id >= 0:
+                    chunk_bytes = chunk_data.tobytes()
+                    # if round_id not in self._model_arrival_latency_data:
+                    #     self._model_arrival_latency_data[round_id] = {}
+                    # if source not in self._model_arrival_latency_data[round_id]:
+                    #     self._model_arrival_latency_data[round_id][source] = {}
+
+                    if chunk_index == 0 and chunk_bytes[: len(comparation_with)] == comparation_with:
+                        start_time = time.time()
+                        # logging.info(f"start_time: {start_time:.3f} of source {source} for round {round_id}")
+                        # self._model_arrival_latency_data[round_id][source]["start_time"] = start_time
+
+                #     if chunk_index == 1 and "start_time" in self._model_arrival_latency_data[round_id][source]:
+                #         logging.info("Processing chunk_index == 1")
+                #         end_time = time.time()
+                #         self._model_arrival_latency_data[round_id][source]["end_time"] = end_time
+                #         logging.info(f"end_time: {end_time} of source {source} for round {round_id}")
+                #         start_time = self._model_arrival_latency_data[round_id][source]["start_time"]
+                #         latency = end_time - start_time
+                #         logging.info(f"Node {source} | Latency: {latency:.3f} seconds")
+
+                # if (
+                #     "start_time" in self._model_arrival_latency_data[round_id][source] and
+                #     "end_time" in self._model_arrival_latency_data[round_id][source]
+                # ):
+                #     start_time = self._model_arrival_latency_data[round_id][source]["start_time"]
+                #     end_time = self._model_arrival_latency_data[round_id][source]["end_time"]
+                #     latency = end_time - start_time
+                #     logging.info(f"Node {source} | Latency: {latency:.3f} seconds")
+
+                # if "time_0" not in self._model_arrival_latency_data[round_id]:
+                #     self._model_arrival_latency_data[round_id]["time_0"] = {"time": start_time, "source": source}
                 #     logging.info(f"start_time: {start_time} of source {self.addr} for round {round_id}")
 
-                # relative_time = start_time - self._chunk_data[round_id]["time_0"]["time"]
+                # relative_time = start_time - self._model_arrival_latency_data[round_id]["time_0"]["time"]
 
-                # if source not in self._chunk_data[round_id]:
-                #     self._chunk_data[round_id][source] = {
+                # if source not in self._model_arrival_latency_data[round_id]:
+                #     self._model_arrival_latency_data[round_id][source] = {
                 #         "start_time": start_time,
                 #         "relative_time": relative_time,
                 #     }
-                #     logging.info(f"self.chunk_data: {self._chunk_data}")
+                #     logging.info(f"self.chunk_data: {self._model_arrival_latency_data}")
                 #     logging.info(f"Node {source} | Time taken relative to time_0: {relative_time:.3f} seconds")
 
                 # save_data(
@@ -314,11 +344,8 @@ class Connection:
                 #     source,
                 #     self.cm.get_addr(),
                 #     num_round=round_id,
-                #     message_id_decoded=message_id_decoded,
                 #     latency=relative_time,
                 # )
-                # else:
-                #     logging.info(f"Node {source} save data at round {round_id} already exists")
 
                 if is_last_chunk:
                     await self._process_complete_message(message_id)

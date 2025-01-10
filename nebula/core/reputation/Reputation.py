@@ -122,6 +122,7 @@ class Reputation:
         """
         logging.info(f"id_node: {id_node}, addr: {addr}, nei: {nei}")
         addr = addr.split(":")[0].strip()
+        nei_with_port = nei
         nei = nei.split(":")[0].strip()
 
         messages_time_message_normalized = 0
@@ -185,12 +186,52 @@ class Reputation:
                             round_latency = metric["model_arrival_latency"]["round"]
                             latency = metric["model_arrival_latency"]["latency"]
                             if round_latency == current_round:
+                                logging.info("model_arrival_latency from round == current_round")
                                 messages_model_arrival_latency_normalized = Reputation.manage_model_arrival_latency(
-                                    round_latency, addr, nei, latency, scenario, self.model_arrival_latency_data
+                                    round_latency,
+                                    addr,
+                                    nei,
+                                    latency,
+                                    scenario,
+                                    self.model_arrival_latency_data,
+                                    current_round,
                                 )
                                 logging.info(
                                     f"messages_model_arrival_latency_normalized: {messages_model_arrival_latency_normalized}"
                                 )
+                                if current_round - 1 in Reputation.model_arrival_latency_history:
+                                    if nei in Reputation.model_arrival_latency_history[current_round - 1]:
+                                        nei = Reputation.model_arrival_latency_history[current_round - 1][nei]
+                                        logging.info(f"Nei: {nei}")
+                                        if (
+                                            "no_data"
+                                            in Reputation.model_arrival_latency_history[current_round - 1][nei]
+                                        ):
+                                            no_data = Reputation.model_arrival_latency_history[current_round - 1][nei][
+                                                "no_data"
+                                            ]
+                                            logging.info(f"No data: {no_data}")
+                                        if no_data == True:
+                                            Reputation.model_arrival_latency_history[current_round][nei]["lantecy"] = (
+                                                latency
+                                            )
+                            elif round_latency < current_round:
+                                logging.info("model_arrival_latency from round < current_round")
+                                for round in range(current_round, current_round + 1):
+                                    logging.info(f"Round to process: {round}")
+                                    latency = self.engine.config.participant["aggregator_args"]["aggregation_timeout"]
+                                    messages_model_arrival_latency_normalized = Reputation.manage_model_arrival_latency(
+                                        round_latency,
+                                        addr,
+                                        nei,
+                                        latency,
+                                        scenario,
+                                        self.model_arrival_latency_data,
+                                        current_round,
+                                    )
+                                    logging.info(
+                                        f"messages_model_arrival_latency_normalized: {messages_model_arrival_latency_normalized}"
+                                    )
 
                     similarity_file = os.path.join(log_dir, f"participant_{id_node}_similarity.csv")
                     similarity_reputation = Reputation.read_similarity_file(similarity_file, nei)
@@ -199,6 +240,20 @@ class Reputation:
                         avg_model_arrival_latency = Reputation.save_model_arrival_latency_history(
                             addr, nei, messages_model_arrival_latency_normalized, current_round
                         )
+                        logging.info(f"Avg model_arrival_latency: {avg_model_arrival_latency}")
+                        # if current_round >= 5 and (avg_model_arrival_latency < 0.9 or avg_model_arrival_latency > 1):
+                        #     self.engine.rejected_nodes.add((nei_with_port, current_round))
+                        #     logging.info(f"Node rejected = {nei_with_port}")
+                        #     logging.info(f"Rejected nodes: {self.engine.rejected_nodes}")
+
+                        # self.engine.rejected_nodes = {
+                        #     (node, round_rejected) for node, round_rejected in self.engine.rejected_nodes
+                        #     if current_round - round_rejected < 2
+                        # }
+                        # logging.info(f"Rejected nodes: {self.engine.rejected_nodes}")
+                        # self.engine.rejected_nodes = { node for node, _ in self.engine.rejected_nodes }
+                        # logging.info(f"Rejected nodes: {self.engine.rejected_nodes}")
+
                         if avg_model_arrival_latency is None and current_round > 4:
                             avg_model_arrival_latency = Reputation.model_arrival_latency_history[(addr, nei)][
                                 current_round - 1
@@ -288,21 +343,10 @@ class Reputation:
                     # Weights for each metric
                     if current_round is not None:
                         if current_round >= 5:  # only for rounds 5 and later
-                            # Weight to scenarios with delay
-                            # weight_to_similarity = 0.1
-                            # weight_to_fraction = 0.1
-                            # weight_to_message_time_message = 0.1
-                            # weight_to_model_arrival_latency = 0.7
-                            # Weight to scenarios with noise injection
-                            # weight_to_similarity = 0.4
-                            # weight_to_fraction = 0.4
-                            # weight_to_message_time_message = 0.1
-                            # weight_to_model_arrival_latency = 0.1
-                            # Weight to scenarios with flood
-                            weight_to_similarity = 0.1
-                            weight_to_fraction = 0.1
-                            weight_to_message_time_message = 0.6
-                            weight_to_model_arrival_latency = 0.2
+                            weight_to_similarity = 0.25
+                            weight_to_fraction = 0.25
+                            weight_to_message_time_message = 0.25
+                            weight_to_model_arrival_latency = 0.25
                         elif current_round <= 4:  # only for rounds 0, 1, 2, 3
                             weight_to_similarity = 1.0
                             weight_to_fraction = 0.0
@@ -483,11 +527,18 @@ class Reputation:
                 prev_key = (addr, nei, round_num - 1)
                 if prev_key not in Reputation.fraction_changed_history:
                     for i in range(0, round_num + 1):
+                        logging.info(f"Round: {round_num}, i = {i}")
                         potential_prev_key = (addr, nei, round_num - i)
+                        logging.info(f"Round: {round_num}, Potential previous key: {potential_prev_key}")
                         if potential_prev_key in Reputation.fraction_changed_history:
-                            prev_key = potential_prev_key
-                            break
+                            mean_fraction_prev = Reputation.fraction_changed_history[potential_prev_key][
+                                "mean_fraction"
+                            ]
+                            if mean_fraction_prev is not None:
+                                prev_key = potential_prev_key
+                                break
 
+                # logging.info(f"Round: {round_num}, Previous key: {prev_key}")
                 if prev_key:
                     mean_fraction_prev = Reputation.fraction_changed_history[prev_key]["mean_fraction"]
                     std_dev_fraction_prev = Reputation.fraction_changed_history[prev_key]["std_dev_fraction"]
@@ -636,7 +687,9 @@ class Reputation:
             return 0.0
 
     @staticmethod
-    def manage_model_arrival_latency(round_num, addr, nei, latency, scenario, model_arrival_latency_data):
+    def manage_model_arrival_latency(
+        round_num, addr, nei, latency, scenario, model_arrival_latency_data, current_round
+    ):
         """
         Manage the model_arrival_latency latency metric with persistent storage of mean latency.
 
@@ -654,41 +707,40 @@ class Reputation:
         try:
             current_key = nei
 
-            if round_num not in Reputation.model_arrival_latency_history:
-                Reputation.model_arrival_latency_history[round_num] = {}
+            if current_round not in Reputation.model_arrival_latency_history:
+                Reputation.model_arrival_latency_history[current_round] = {}
 
-            Reputation.model_arrival_latency_history[round_num][current_key] = {
+            Reputation.model_arrival_latency_history[current_round][current_key] = {
                 "latency": latency,
                 "score": 0.0,
             }
 
-            # logging.info(f"Reputation.model_arrival_latency_history: {Reputation.model_arrival_latency_history}")
+            logging.info(f"Reputation.model_arrival_latency_history: {Reputation.model_arrival_latency_history}")
 
-            if round_num >= 5:
-                if round_num > 5:
+            if current_round >= 5:
+                if current_round > 5:
                     if (
-                        round_num - 1 in Reputation.model_arrival_latency_history
-                        and current_key in Reputation.model_arrival_latency_history[round_num - 1]
+                        current_round - 1 in Reputation.model_arrival_latency_history
+                        and current_key in Reputation.model_arrival_latency_history[current_round - 1]
                     ):
-                        prev_mean_latency = Reputation.model_arrival_latency_history[round_num - 1][current_key].get(
-                            "mean_latency", None
-                        )
-                        prev_stdev_latency = Reputation.model_arrival_latency_history[round_num - 1][current_key].get(
-                            "stdev_latency", None
-                        )
-                        percentil_25 = Reputation.model_arrival_latency_history[round_num - 1][current_key].get(
+                        prev_mean_latency = Reputation.model_arrival_latency_history[current_round - 1][
+                            current_key
+                        ].get("mean_latency", None)
+                        prev_stdev_latency = Reputation.model_arrival_latency_history[current_round - 1][
+                            current_key
+                        ].get("stdev_latency", None)
+                        percentil_25 = Reputation.model_arrival_latency_history[current_round - 1][current_key].get(
                             "percentil_25", None
                         )
-                        percentil_75 = Reputation.model_arrival_latency_history[round_num - 1][current_key].get(
+                        percentil_75 = Reputation.model_arrival_latency_history[current_round - 1][current_key].get(
                             "percentil_75", None
                         )
 
-                        # logging.info(f"Round {round_num} | Node {nei} | Round {round_num - 1} | Previous Mean Latency: {prev_mean_latency} | Previous Stdev Latency: {prev_stdev_latency}")
-                        # logging.info(f"Round {round_num} | Node {nei} | Round {round_num - 1} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}")
+                        # logging.info(f"Round {current_round} | Node {nei} | Round {current_round - 1} | Previous Mean Latency: {prev_mean_latency} | Previous Stdev Latency: {prev_stdev_latency}")
+                        # logging.info(f"Round {current_round} | Node {nei} | Round {current_round - 1} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}")
 
-                        # Si no se encuentran datos en round_num - 1, recorrer las rondas previas desde round_num - 2 hasta 5
                         if prev_mean_latency is None or prev_stdev_latency is None:
-                            for r in range(round_num - 2, 5 - 1, -1):
+                            for r in range(current_round - 2, 5 - 1, -1):
                                 if (
                                     r in Reputation.model_arrival_latency_history
                                     and current_key in Reputation.model_arrival_latency_history[r]
@@ -706,56 +758,55 @@ class Reputation:
                                         "percentil_75", None
                                     )
 
-                                    # logging.info(f"Round {round_num} | Node {nei} | Round {r} | Previous Mean Latency: {prev_mean_latency} | Previous Stdev Latency: {prev_stdev_latency}")
-                                    # logging.info(f"Round {round_num} | Node {nei} | Round {r} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}")
+                                    # logging.info(f"Round {current_round} | Node {nei} | Round {r} | Previous Mean Latency: {prev_mean_latency} | Previous Stdev Latency: {prev_stdev_latency}")
+                                    # logging.info(f"Round {current_round} | Node {nei} | Round {r} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}")
 
                                     # Si se encuentran los datos, salir del bucle
                                     if prev_mean_latency is not None and prev_stdev_latency is not None:
                                         break
                                 else:
                                     logging.info(
-                                        f"Round {round_num} | Node {nei} | Round {r} | No previous data found."
+                                        f"Round {current_round} | Node {nei} | Round {r} | No previous data found."
                                     )
 
-                            # Si no se encontraron datos en ninguna ronda anterior, inicializar valores predeterminados
                             if prev_mean_latency is None or prev_stdev_latency is None:
                                 prev_mean_latency = 0
                                 prev_stdev_latency = 1
                                 percentil_25 = 0
                                 percentil_75 = 0
-                                # logging.info(f"Round {round_num} | Node {nei} | No previous latency data found, initializing defaults.")
+                                # logging.info(f"Round {current_round} | Node {nei} | No previous latency data found, initializing defaults.")
                 else:
                     all_latencies = []
-                    for r in range(round_num - 1):
+                    for r in range(current_round - 1):
                         if r in Reputation.model_arrival_latency_history:
                             for key, data in Reputation.model_arrival_latency_history[r].items():
                                 if "latency" in data and data["latency"] != 0:
                                     all_latencies.append(data["latency"])
 
-                    logging.info(f"Round {round_num} | Node {nei} | All latencies: {all_latencies}")
+                    logging.info(f"Round {current_round} | Node {nei} | All latencies: {all_latencies}")
 
                     prev_mean_latency = np.mean(all_latencies) if all_latencies else 0
                     prev_stdev_latency = np.std(all_latencies) if all_latencies else 1
                     logging.info(
-                        f"Round {round_num} | Node {nei} | Initial Mean Latency: {prev_mean_latency} | Initial Stdev Latency: {prev_stdev_latency}"
+                        f"Round {current_round} | Node {nei} | Initial Mean Latency: {prev_mean_latency} | Initial Stdev Latency: {prev_stdev_latency}"
                     )
 
                     percentil_25 = np.percentile(all_latencies, 25) if all_latencies else 0
                     percentil_75 = np.percentile(all_latencies, 75) if all_latencies else 0
                     logging.info(
-                        f"Round {round_num} | Node {nei} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}"
+                        f"Round {current_round} | Node {nei} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}"
                     )
 
                 k = 0.5
                 prev_mean_latency = prev_mean_latency + k * (percentil_75 - percentil_25)
-                logging.info(f"Round {round_num} | Node {nei} | Mean latency with k: {prev_mean_latency}")
-                logging.info(f"Round {round_num} | Node {nei} | Latency: {latency}")
+                logging.info(f"Round {current_round} | Node {nei} | Mean latency with k: {prev_mean_latency}")
+                logging.info(f"Round {current_round} | Node {nei} | Latency: {latency}")
 
                 if latency == 0.0:
                     latency = 0.5
 
                 difference = latency - prev_mean_latency
-                logging.info(f"Round {round_num} | Node {nei} | Difference: {difference}")
+                logging.info(f"Round {current_round} | Node {nei} | Difference: {difference}")
 
                 if latency <= prev_mean_latency:
                     score = 1
@@ -764,39 +815,49 @@ class Reputation:
                         score = 1
                     else:
                         score = 1 / (1 + np.exp(abs(difference) / prev_mean_latency))
-                logging.info(f"Round {round_num} | Node {nei} | Score: {score}")
-                Reputation.model_arrival_latency_history[round_num][current_key]["score"] = score
+                logging.info(f"Round {current_round} | Node {nei} | Score: {score}")
 
-                n = round_num if round_num else 1
-                # logging.info(f"Round {round_num} | Node {nei} | N: {n}")
+                if round_num < current_round:
+                    score += 1 / (1 + np.exp(abs(difference) / prev_mean_latency))
+                    Reputation.model_arrival_latency_history[current_round][current_key]["no_data"] = True
+
+                logging.info(f"Round {current_round} | Node {nei} | Score penalization round: {score}")
+                Reputation.model_arrival_latency_history[current_round][current_key]["score"] = score
+
+                n = current_round if current_round else 1
+                # logging.info(f"Round {current_round} | Node {nei} | N: {n}")
 
                 update_mean = (prev_mean_latency * n + latency) / (n + 1)
                 update_stdev = np.sqrt(
                     ((prev_stdev_latency**2) + (latency - prev_mean_latency) * (latency - update_mean)) / (n + 1)
                 )
                 logging.info(
-                    f"Round {round_num} | Node {nei} | Mean Latency: {update_mean} | Stdev Latency: {update_stdev}"
+                    f"Round {current_round} | Node {nei} | Mean Latency: {update_mean} | Stdev Latency: {update_stdev}"
                 )
 
                 accumulated_latencies = [
                     data["latency"]
-                    for r in range(round_num + 1)
+                    for r in range(current_round + 1)
                     if r in Reputation.model_arrival_latency_history
                     for key, data in Reputation.model_arrival_latency_history[r].items()
                     if "latency" in data and data["latency"] != 0
                 ]
-                logging.info(f"Round {round_num} | Node {nei} | Accumulated latencies: {accumulated_latencies}")
+                logging.info(f"Round {current_round} | Node {nei} | Accumulated latencies: {accumulated_latencies}")
 
                 update_percentil_25 = np.percentile(accumulated_latencies, 25) if accumulated_latencies else 0
                 update_percentil_75 = np.percentile(accumulated_latencies, 75) if accumulated_latencies else 0
                 logging.info(
-                    f"Round {round_num} | Node {nei} | Percentil 25: {update_percentil_25} | Percentil 75: {update_percentil_75}"
+                    f"Round {current_round} | Node {nei} | Percentil 25: {update_percentil_25} | Percentil 75: {update_percentil_75}"
                 )
 
-                Reputation.model_arrival_latency_history[round_num][current_key]["mean_latency"] = update_mean
-                Reputation.model_arrival_latency_history[round_num][current_key]["stdev_latency"] = update_stdev
-                Reputation.model_arrival_latency_history[round_num][current_key]["percentil_25"] = update_percentil_25
-                Reputation.model_arrival_latency_history[round_num][current_key]["percentil_75"] = update_percentil_75
+                Reputation.model_arrival_latency_history[current_round][current_key]["mean_latency"] = update_mean
+                Reputation.model_arrival_latency_history[current_round][current_key]["stdev_latency"] = update_stdev
+                Reputation.model_arrival_latency_history[current_round][current_key]["percentil_25"] = (
+                    update_percentil_25
+                )
+                Reputation.model_arrival_latency_history[current_round][current_key]["percentil_75"] = (
+                    update_percentil_75
+                )
 
             else:
                 # For rounds < 5, no scoring or updates
@@ -806,13 +867,13 @@ class Reputation:
             data = {
                 "addr": addr,
                 "nei": nei,
-                "round": round_num,
+                "round": current_round,
                 "latency": latency,
-                "mean_latency": prev_mean_latency if round_num >= 5 else None,
-                "stdev_latency": prev_stdev_latency if round_num >= 5 else None,
-                "percentil_25": percentil_25 if round_num >= 5 else None,
-                "percentil_75": percentil_75 if round_num >= 5 else None,
-                "difference": difference if round_num >= 5 else None,
+                "mean_latency": prev_mean_latency if current_round >= 5 else None,
+                "stdev_latency": prev_stdev_latency if current_round >= 5 else None,
+                "percentil_25": percentil_25 if current_round >= 5 else None,
+                "percentil_75": percentil_75 if current_round >= 5 else None,
+                "difference": difference if current_round >= 5 else None,
                 "score": score,
             }
             Reputation.metrics(scenario, data, addr, nei, "model_arrival_latency")
@@ -965,7 +1026,7 @@ class Reputation:
                     )
                     # logging.info(f"Avg model_arrival_latency latency IF: {avg_model_arrival_latency}")
                 else:
-                    avg_model_arrival_latency = model_arrival_latency - (model_arrival_latency * 0.1)
+                    avg_model_arrival_latency = model_arrival_latency - (model_arrival_latency * 0.05)
                     # logging.info(f"Avg model_arrival_latency latency ELSE: {avg_model_arrival_latency}")
             elif model_arrival_latency == 0 and round_num > 5:
                 # logging.info(" elif model_arrival_latency == 0 and round_num > 5")
@@ -1021,7 +1082,9 @@ class Reputation:
                 decay_factor = Reputation.calculate_decay_rate(rep) ** i
                 total_reputation += rep * decay_factor
                 total_weights += decay_factor
-                logging.info(f"Round: {n_round}, Reputation: {rep}, Decay: {decay_factor}, Total reputation: {total_reputation}")
+                logging.info(
+                    f"Round: {n_round}, Reputation: {rep}, Decay: {decay_factor}, Total reputation: {total_reputation}"
+                )
 
             avg_reputation = total_reputation / total_weights
             if total_weights > 0:

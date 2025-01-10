@@ -285,36 +285,47 @@ class CommunicationsManager:
                     logging.info(f"start_time: {start_time} of source {self.addr} for round {round_id}")
 
                 relative_time = start_time - self._model_arrival_latency_data[round_id]["time_0"]["time"]
+                # federation_nodes = await self.get_addrs_current_connections(only_direct=True, myself=True)
+                # if len(self._model_arrival_latency_data[round_id]) >= len(federation_nodes) / 2:
+                #     relative_times = [
+                #         data["relative_time"]
+                #         for key, data in self._model_arrival_latency_data[round_id].items()
+                #         if "relative_time" in data
+                #     ]
+                #     mean_time = np.mean(relative_times)
+                #     std_time = np.std(relative_times)
+                #     threshold = mean_time + 2 * std_time
+
+                #     logging.info(f"mean_time: {mean_time} | std_time: {std_time} | threshold: {threshold}")
+                #     if relative_time > threshold:
+                #         self.engine.rejected_nodes.add(source)
+                #         logging.info(f"🤖  handle_model_message | Latency of source = {source} is higher than the mean: {relative_time:.3f} seconds")
+                # else:
+                #     logging.info("🤖  handle_model_message | Waiting for at least 50 percent of models to calculate mean latency.")
 
                 if source not in self._model_arrival_latency_data[round_id]:
                     self._model_arrival_latency_data[round_id][source] = {
                         "start_time": start_time,
                         "relative_time": relative_time,
                     }
-                    logging.info(f"self.model_arrival_latency_data: {self._model_arrival_latency_data}")
+                    # logging.info(f"self.model_arrival_latency_data: {self._model_arrival_latency_data}")
                     logging.info(f"Node {source} | Time taken relative to time_0: {relative_time:.3f} seconds")
 
                 if message.round == current_round:
-                    save_data(
-                        self.config.participant["scenario_args"]["name"],
-                        "model_arrival_latency",
-                        source,
-                        self.get_addr(),
-                        num_round=message.round,
-                        latency=relative_time,
-                    )
-                # else:
-                # logging.info(f"🤖  handle_model_message | Received a model from a different round | Model round: {message.round} | Current round: {current_round}")
-                # if message.round > current_round:
-                # logging.info(f"🤖  handle_model_message | message.round > current_round")
-                # save_data(
-                #     self.config.participant["scenario_args"]["name"],
-                #     "model_arrival_latency",
-                #     source,
-                #     self.get_addr(),
-                #     num_round=message.round,
-                #     latency=relative_time,
-                # )
+                    logging.info(f"🤖  handle_model_message | message_round == current_round to node {source}")
+                elif message.round < current_round:
+                    logging.info(f"🤖  handle_model_message | message_round <= current_round to node {source}")
+                else:
+                    logging.info(f"🤖  handle_model_message | message_round > current_round to node {source}")
+
+                save_data(
+                    self.config.participant["scenario_args"]["name"],
+                    "model_arrival_latency",
+                    source,
+                    self.get_addr(),
+                    num_round=message.round,
+                    latency=relative_time,
+                )
 
             if message.round != current_round and message.round != -1:
                 logging.info(
