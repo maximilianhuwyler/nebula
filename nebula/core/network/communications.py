@@ -286,17 +286,19 @@ class CommunicationsManager:
                             decoded_model,
                             similarity=True,
                         )
-                        with open(
-                            f"{self.log_dir}/participant_{self.idx}_similarity.csv",
-                            "a+",
-                        ) as f:
-                            if os.stat(f"{self.log_dir}/participant_{self.idx}_similarity.csv").st_size == 0:
-                                f.write(
-                                    "timestamp,source_ip,nodes,round,current_round,cosine,euclidean,minkowski,manhattan,pearson_correlation,jaccard\n"
-                                )
-                            f.write(
-                                f"{datetime.now()}, {source}, {message.round}, {current_round}, {cosine_value}, {euclidean_value}, {minkowski_value}, {manhattan_value}, {pearson_correlation_value}, {jaccard_value}\n"
-                            )
+                        #with open(
+                        #    f"{self.config.participant["tracking_args"]["log_dir"]}/participant_{self.id}_similarity.csv",
+                        #    "a+",
+                        #) as f:
+                        #    if os.stat(f"{self}/participant_{self.id}_similarity.csv").st_size == 0:
+                        #        f.write(
+                        #            "timestamp,source_ip,nodes,round,current_round,cosine,euclidean,minkowski,manhattan,pearson_correlation,jaccard\n"
+                        #        )
+                        #    f.write(
+                        #        f"{datetime.now()}, {source}, {message.round}, {current_round}, {cosine_value}, {euclidean_value}, {minkowski_value}, {manhattan_value}, {pearson_correlation_value}, {jaccard_value}\n"
+                        #    )
+                        logging("Similarities between self model and model recieved...")
+                        logging.info(f"{source}, {message.round}, {current_round}, {cosine_value}, {euclidean_value}, {minkowski_value}, {manhattan_value}, {pearson_correlation_value}, {jaccard_value}")
 
                     await self.engine.aggregator.include_model_in_buffer(
                         decoded_model,
