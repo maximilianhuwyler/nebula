@@ -56,6 +56,9 @@ class NodeManager():
         self._fast_reboot_status = fastreboot
         if (fastreboot):
             self._fastreboot = FastReboot(self)
+            
+        if (momentum):
+            pass
                  
         #self.set_confings()
 

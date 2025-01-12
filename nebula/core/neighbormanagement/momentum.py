@@ -13,7 +13,6 @@ SimilarityMetricType = Callable[[OrderedDict, OrderedDict, bool], Optional[float
 
 MAX_HISTORIC_SIZE = 10      # Number of historic data storaged
 GLOBAL_PRIORITY = 0.5       # Parameter to priorize global vs local metrics
-K = 1                       # Sigmoid smoother factor
 EPSILON = 0.001
 
 class Momentum():
@@ -23,7 +22,7 @@ class Momentum():
         node_manager: "NodeManager",
         nodes,
         global_priority=GLOBAL_PRIORITY,
-        variance=True,
+        dispersion_penalty=True,
         similarity_metric : SimilarityMetricType = cosine_metric,
     ):
         self._node_manager = node_manager
@@ -32,7 +31,7 @@ class Momentum():
         self._model_similarity_metric_lock = Locker(name="_model_similarity_metric_lock", async_lock=True)
         self._model_similarity_metric = similarity_metric
         self._global_prio = global_priority
-        self._variance_status = variance
+        self._dispersion_penalty = dispersion_penalty
 
     @property
     def nm(self):
@@ -94,28 +93,46 @@ class Momentum():
                 similarity=True,
             )
             await self._add_similarity_to_node(addr, cosine_value)
-                
+            
+    def _calculate_dispersion_penalty(self, historic: dict, updates: dict):
+        logging.info("Calculating | Dispersion penalty")
+        round_similarities = [(addr, n_hist[-1]) for addr,n_hist in historic.items() if n_hist]
+        if round_similarities:
+            mean_similarity = np.mean(round_similarities)
+            std_similarity = np.std(round_similarities) + EPSILON
+            logging.info(f"Calculating | mean similarity: {mean_similarity}, standar similarity: {std_similarity}")
+            for addr,sim in round_similarities:
+                penalty = abs(sim - mean_similarity) / (std_similarity + EPSILON) # To avoid div by 0
+                penalty = min(1.0, max(0.0, penalty))
+                dispersion_penalty = 1 - penalty        
+                          
     async def calculate_momentum_weights(self, updates: dict):
+        if not updates:
+            return
         logging.info("Calculating | Momemtum weights are being calculated...")
-        self._model_similarity_metric_lock.acquire_async()
+        self._model_similarity_metric_lock.acquire_async() 
         await self._calculate_similarities(updates)                                         # Calculate similarity value between self model and updates received
         historic = await self._get_similarity_historic(updates.keys())                      # Get historic similarities values from nodes that has sent update this round
-        
-        round_similarities = [n_hist[-1] for n_hist in historic.values() if n_hist]
-        variance = np.var(round_similarities) if round_similarities else 0
-        
-        # scaled_sigmoid = a + (b−a)⋅sigmoid if u desire to get min_values < 0.5, define a = min_value
-        def sigmoid(similarity):
-            sigmoid = 1 / (1 + np.exp(-K * (similarity - 0.5)))
+              
+        def sigmoid(similarity, k=2.5):
+            if similarity >= 0.92:
+                sigmoid = 1
+            else:
+                sigmoid = 1 / (1 + np.exp(-k * (similarity)))
             return sigmoid 
         
-        for node_id, n_hist in historic.items():
+        def map_value(sim_value, e=EPSILON):
+            return e + ((sim_value + 1) / 2)
+        
+        for node_addr, n_hist in historic.items():
             if not n_hist:
                 continue 
-            sim_value = n_hist[-1]                                                                      # Get last similarity value
-            mapped_sim_value = EPSILON + ((sim_value + 1) / 2)                                          # Mapped [-1, 1] -> [0, 1]
+            sim_value = n_hist[-1]                                  # Get last similarity value
+            mapped_sim_value = map_value(sim_value)                 # Mapped [-1, 1] -> [0, 1]
             smoothed_value = sigmoid(mapped_sim_value)
             adjusted_weight = smoothed_value * self._global_prio + (1 - self._global_prio) * mapped_sim_value
         
+        if self._dispersion_penalty:
+            self._calculate_dispersion_penalty(historic, updates)
         
         self._model_similarity_metric_lock.release_async() 
