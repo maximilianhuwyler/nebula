@@ -14,6 +14,7 @@ SimilarityMetricType = Callable[[OrderedDict, OrderedDict, bool], Optional[float
 MAX_HISTORIC_SIZE = 10      # Number of historic data storaged
 GLOBAL_PRIORITY = 0.5       # Parameter to priorize global vs local metrics
 K = 1                       # Sigmoid smoother factor
+EPSILON = 0.001
 
 class Momentum():
 
@@ -21,9 +22,9 @@ class Momentum():
         self,  
         node_manager: "NodeManager",
         nodes,
+        global_priority=GLOBAL_PRIORITY,
         variance=True,
         similarity_metric : SimilarityMetricType = cosine_metric,
-        global_priority=GLOBAL_PRIORITY,
     ):
         self._node_manager = node_manager
         self._similarities_historic = {node_id: deque(maxlen=MAX_HISTORIC_SIZE) for node_id in nodes}
@@ -92,12 +93,29 @@ class Momentum():
                 update,
                 similarity=True,
             )
-            await self._add_similarity_to_node(addr, cosine_value)    
-
-    async def calculate_similarity_weights(self, updates: dict):
+            await self._add_similarity_to_node(addr, cosine_value)
+                
+    async def calculate_momentum_weights(self, updates: dict):
         logging.info("Calculating | Momemtum weights are being calculated...")
         self._model_similarity_metric_lock.acquire_async()
-        await self._calculate_similarities(updates)
-        historic = await self._get_similarity_historic(updates.keys())
-        similarities = [node_sim[-1] for node_sim in historic.values() if node_sim]
+        await self._calculate_similarities(updates)                                         # Calculate similarity value between self model and updates received
+        historic = await self._get_similarity_historic(updates.keys())                      # Get historic similarities values from nodes that has sent update this round
+        
+        round_similarities = [n_hist[-1] for n_hist in historic.values() if n_hist]
+        variance = np.var(round_similarities) if round_similarities else 0
+        
+        # scaled_sigmoid = a + (b−a)⋅sigmoid if u desire to get min_values < 0.5, define a = min_value
+        def sigmoid(similarity):
+            sigmoid = 1 / (1 + np.exp(-K * (similarity - 0.5)))
+            return sigmoid 
+        
+        for node_id, n_hist in historic.items():
+            if not n_hist:
+                continue 
+            sim_value = n_hist[-1]                                                                      # Get last similarity value
+            mapped_sim_value = EPSILON + ((sim_value + 1) / 2)                                          # Mapped [-1, 1] -> [0, 1]
+            smoothed_value = sigmoid(mapped_sim_value)
+            adjusted_weight = smoothed_value * self._global_prio + (1 - self._global_prio) * mapped_sim_value
+        
+        
         self._model_similarity_metric_lock.release_async() 
