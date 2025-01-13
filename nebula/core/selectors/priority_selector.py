@@ -1,5 +1,4 @@
 import logging
-import math
 from collections import namedtuple
 
 import numpy as np
@@ -26,7 +25,8 @@ class PrioritySelector(Selector):
     MIN_AMOUNT_OF_SELECTED_NEIGHBORS = 1
     MAX_PERCENT_SELECTABLE_NEIGHBORS = 0.8
     # Original Feature Weights provided in Report / Thesis
-    FEATURE_WEIGHTS = [70.0, 5.0, 1.0, 0.0, 80.0, 2.0, 1.0]
+    # please change the weights if you want emphsize the impantance of the features
+    FEATURE_WEIGHTS = [70.0, 5.0, 1.0, 0.0, 80.0, 2.0, 1.0, 10.0]
     # Feature Weights for Testing (Latency can be changed reliably by virtual constraints)
     # FEATURE_WEIGHTS = [0, 0, 0, 0, 0, 100, 0]
 
@@ -34,7 +34,8 @@ class PrioritySelector(Selector):
         super().__init__(config)
         self.config = config
         FeatureWeights = namedtuple(
-            "FeatureWeights", ["loss", "cpu_percent", "data_size", "bytes_received", "bytes_sent", "latency", "age"]
+            "FeatureWeights",
+            ["loss", "cpu_percent", "data_size", "bytes_received", "bytes_sent", "latency", "age", "sustainability"],
         )
         self.feature_weights = FeatureWeights(*self.FEATURE_WEIGHTS)
         logging.info("[PrioritySelector] Initialized")
@@ -50,7 +51,8 @@ class PrioritySelector(Selector):
             return self.selected_nodes
 
         availability = []
-        feature_array = np.empty((7, 0))
+        # add the sustainability metric
+        feature_array = np.empty((8, 0))
 
         for neighbor in neighbors:
             if neighbor not in self.ages.keys():
@@ -65,6 +67,7 @@ class PrioritySelector(Selector):
                 self.features[neighbor]["bytes_sent"],
                 1 / (self.features[neighbor]["latency"] + 0.000001),
                 self.ages[neighbor],
+                self.features[neighbor]["sustainability"],
             ))
 
             # Set loss to 100 if loss metric is unavailable
@@ -79,7 +82,7 @@ class PrioritySelector(Selector):
             feature_array = np.append(feature_array, feature, axis=1)
 
         # Normalized features
-        feature_array_normed = normalize(feature_array, axis=1, norm='l1')
+        feature_array_normed = normalize(feature_array, axis=1, norm="l1")
 
         # Add weight to features
         weight = np.array(self.FEATURE_WEIGHTS).reshape(-1, 1)
@@ -105,7 +108,7 @@ class PrioritySelector(Selector):
         #     selected_indices = sorted_indices[:num_selected]
         # else:
         #     selected_indices = non_outlier_indices[:num_selected]
-            
+
         # Identify non-outlier nodes
         non_outlier_indices = [i for i, score in enumerate(scores) if abs(score - mean_score) <= std_score]
         selected_nodes = [neighbors[i] for i in non_outlier_indices]

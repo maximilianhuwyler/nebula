@@ -24,7 +24,7 @@ from nebula.core.utils.helper import (
     jaccard_metric,
     manhattan_metric,
     minkowski_metric,
-    pearson_correlation_metric
+    pearson_correlation_metric,
 )
 from nebula.core.utils.locker import Locker
 
@@ -156,14 +156,16 @@ class CommunicationsManager:
                 await self.handle_connection_message(source, message_wrapper.connection_message)
             elif message_wrapper.HasField("nss_features_message"):
                 await self.handle_nss_features_message(source, message_wrapper.nss_features_message)
-            elif message_wrapper.HasField('vote_message'):
+            elif message_wrapper.HasField("vote_message"):
                 await self.handle_vote_message(source, message_wrapper.vote_message)
             elif message_wrapper.HasField('embedding_message'):
                 await self.handle_embedding_message(source, message_wrapper.embedding_message)
             else:
                 logging.info(f"Unknown handler for message: {message_wrapper}")
         except Exception as e:
-            logging.exception(f"📥  handle_incoming_message | {addr_from} | Size of the message: {sys.getsizeof(data)} bytes | Error while processing: {e}")
+            logging.exception(
+                f"📥  handle_incoming_message | {addr_from} | Size of the message: {sys.getsizeof(data)} bytes | Error while processing: {e}"
+            )
 
     async def handle_discovery_message(self, source, message):
         logging.info(
@@ -297,7 +299,6 @@ class CommunicationsManager:
                     try:
                         model = self.engine.trainer.deserialize_model(message.parameters)
                         self.engine.trainer.set_model_parameters(model, initialize=True)
-                        
                         logging.info("🤖  handle_model_message | Model Parameters Initialized")
                         self.engine.set_initialization_status(True)
                         await (
@@ -340,7 +341,7 @@ class CommunicationsManager:
             logging.info(f"🔍  handle_nss_features_message | Received Message from: {source}")
             await self.engine.event_manager.trigger_event(source, message)
         except Exception as e:
-            logging.error(f"🔍  handle_nss_features_message | Error while processing: {message} | {e}")
+            logging.exception(f"🔍  handle_nss_features_message | Error while processing: {message} | {e}")
 
     async def handle_vote_message(self, source, message):
         try:

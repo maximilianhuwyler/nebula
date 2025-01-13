@@ -10,7 +10,6 @@ import sys
 import textwrap
 import time
 from datetime import datetime
-import tensorboard_reducer as tbr
 
 import docker
 import tensorboard_reducer as tbr
@@ -71,7 +70,8 @@ class Scenario:
         additional_participants,
         schema_additional_participants,
         node_selection_strategy,
-        node_selection_parameter
+        communication_method,
+        node_selection_parameter,
     ):
         """
         Initialize the scenario.
@@ -116,6 +116,8 @@ class Scenario:
             mobile_participants_percent (float): Percentage of mobile participants.
             additional_participants (list): List of additional participants.
             schema_additional_participants (str): Schema for additional participants.
+            node_selection_strategy (str): Strategy for select models to aggergate.
+            communication_method (float): Enengy comsuption for Communication approach, e.g. wifi=0.0005506.
         """
         self.scenario_title = scenario_title
         self.scenario_description = scenario_description
@@ -143,7 +145,9 @@ class Scenario:
         self.attacks = attacks
         self.atk_lie_z = atk_lie_z
         self.label_flipping_config = label_flipping_config
-        self.poisoned_node_percent = label_flipping_config['node_percent'] if label_flipping_config else poisoned_node_percent
+        self.poisoned_node_percent = (
+            label_flipping_config["node_percent"] if label_flipping_config else poisoned_node_percent
+        )
         self.poisoned_sample_percent = poisoned_sample_percent
         self.poisoned_noise_percent = poisoned_noise_percent
         self.with_reputation = with_reputation
@@ -163,7 +167,9 @@ class Scenario:
         self.schema_additional_participants = schema_additional_participants
         self.node_selection_strategy = node_selection_strategy
         self.node_selection_parameter = node_selection_parameter
-        
+        # Sustainability related
+        self.communication_method = communication_method
+
     def attack_node_assign(
         self,
         nodes,
@@ -173,7 +179,7 @@ class Scenario:
         poisoned_sample_percent,
         poisoned_noise_percent,
         label_flipping_config,
-        atk_lie_z
+        atk_lie_z,
     ):
         """Identify which nodes will be attacked"""
         import math
@@ -198,7 +204,7 @@ class Scenario:
             num_attacked = int(math.ceil(poisoned_node_percent / 100 * n_nodes))
             if num_attacked > n_nodes:
                 num_attacked = n_nodes
-                
+
             # Filter out 0 from nodes_index
             filtered_nodes_index = [node for node in nodes_index if node != 0]
 
@@ -317,7 +323,7 @@ class ScenarioManagement:
             int(self.scenario.poisoned_sample_percent),
             int(self.scenario.poisoned_noise_percent),
             self.scenario.label_flipping_config,
-            self.scenario.atk_lie_z
+            self.scenario.atk_lie_z,
         )
 
         if self.scenario.mobility:
@@ -360,7 +366,9 @@ class ScenarioManagement:
             participant_config["device_args"]["accelerator"] = self.scenario.accelerator
             participant_config["device_args"]["logging"] = self.scenario.logginglevel
             participant_config["aggregator_args"]["algorithm"] = self.scenario.agg_algorithm
-            participant_config["aggregator_args"]["reactive_aggregator_default"] = self.scenario.reactive_aggregator_default
+            participant_config["aggregator_args"]["reactive_aggregator_default"] = (
+                self.scenario.reactive_aggregator_default
+            )
             participant_config["adversarial_args"]["attacks"] = node_config["attacks"]
             participant_config["adversarial_args"]["poisoned_sample_percent"] = node_config["poisoned_sample_percent"]
             participant_config["adversarial_args"]["poisoned_ratio"] = node_config["poisoned_ratio"]
@@ -378,15 +386,23 @@ class ScenarioManagement:
             participant_config["mobility_args"]["radius_federation"] = self.scenario.radius_federation
             participant_config["mobility_args"]["scheme_mobility"] = self.scenario.scheme_mobility
             participant_config["mobility_args"]["round_frequency"] = self.scenario.round_frequency
-            participant_config["node_selection_strategy_args"]["enabled"] = False if self.scenario.node_selection_strategy == "default" else True
+            participant_config["node_selection_strategy_args"]["enabled"] = (
+                False if self.scenario.node_selection_strategy == "default" else True
+            )
             participant_config["node_selection_strategy_args"]["strategy"] = self.scenario.node_selection_strategy
             participant_config["node_selection_strategy_args"]["parameter"] = self.scenario.node_selection_parameter
-
             participant_config["resource_args"]["resource_constricted"] = node_config["resourceConstricted"]
             participant_config["resource_args"]["resource_constraint_cpu"] = node_config["resourceConstraintCPU"]
-            participant_config["resource_args"]["resource_constraint_latency"] = node_config["resourceConstraintLatency"]
+            participant_config["resource_args"]["resource_constraint_latency"] = node_config[
+                "resourceConstraintLatency"
+            ]
 
             participant_config["reporter_args"]["report_status_data_queue"] = self.scenario.report_status_data_queue
+
+            # Sustainability related config
+            participant_config["sustainability_args"]["pue"] = node_config["pue"]
+            participant_config["sustainability_args"]["renewable_energy"] = node_config["renewable_energy"]
+            participant_config["sustainability_args"]["communication_method"] = self.scenario.communication_method
 
             with open(participant_file, "w") as f:
                 json.dump(participant_config, f, sort_keys=False, indent=2)
@@ -740,15 +756,15 @@ class ScenarioManagement:
                     - "host.docker.internal:host-gateway"
                 ipc: host
                 privileged: true
-                deploy:
-                    resources:
-                        limits:
-                            cpus: '{}'
                 command:
                     - /bin/bash
                     - -c
                     - |
                         {} && ifconfig && echo '{} host.docker.internal' >> /etc/hosts {} && python /nebula/nebula/node.py {}
+                deploy:
+                    resources:
+                        limits:
+                            cpus: '{}'
                 networks:
                     nebula-net-scenario:
                         ipv4_address: {}
@@ -853,10 +869,11 @@ class ScenarioManagement:
                 services += participant_template.format(
                     idx,
                     self.root_path,
-                    resource_constraint_cpu,
+                    "sleep 10" if node["device_args"]["start"] else "sleep 0",
                     self.scenario.network_gateway,
                     tcset_cmd,
                     path,
+                    resource_constraint_cpu,
                     node["network_args"]["ip"],
                     "proxy:" if self.scenario.deployment and self.use_blockchain else "",
                 )

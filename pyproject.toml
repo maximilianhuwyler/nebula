@@ -97,6 +97,8 @@ core = [
     "torchvision==0.19.1",
     "transformers==4.44.2",
     "web3==6.20.0",
+    "geopandas=="1.0.1",
+    "shapely==2.0.6",
 ]
 frontend = [
     "aiosqlite==0.20.0",

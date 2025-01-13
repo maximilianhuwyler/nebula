@@ -34,7 +34,8 @@ class Selector:
             "Loss: {}\n"
             "Data Size: {}\n"
             "Latency (ms): {}\n"
-            "Availability: {}"
+            "Availability: {}\n"
+            "Sustainability: {}"
         )
         print_msg_box(
             selector_received_nss_msg.format(
@@ -46,6 +47,7 @@ class Selector:
                 features["data_size"],
                 round(features["latency"], 2),
                 features["availability"],
+                features["sustainability"],
             ),
             indent=2,
             title="Selector: Received NSS Features",
