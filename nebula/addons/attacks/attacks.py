@@ -1,5 +1,8 @@
+from abc import abstractmethod
+from functools import wraps
+import asyncio
+import importlib
 import logging
-from collections import OrderedDict
 from copy import deepcopy
 from typing import Any
 
@@ -18,38 +21,44 @@ from nebula.core.datasets.datamodule import DataModule
 #   its weights only (should be more effective if they are different).
 
 
-def create_attack(attack_name):
+def create_attack(attack_name, communications_manager, **kwargs):
     """
     Function to create an attack object from its name.
     """
     if attack_name == "GLLNeuronInversionAttack":
         return GLLNeuronInversionAttack()
-    elif attack_name == "NoiseInjectionAttack":
-        return NoiseInjectionAttack()
+    if attack_name == "NoiseInjectionAttack":
+        valid_params = {k: v for k, v in kwargs.items() if k in ["strength"]}
+        return NoiseInjectionAttack(**valid_params)
     elif attack_name == "SwappingWeightsAttack":
-        return SwappingWeightsAttack()
+        valid_params = {k: v for k, v in kwargs.items() if k in ["layer_idx"]}
+        return SwappingWeightsAttack(**valid_params)
     elif attack_name == "DelayerAttack":
-        return DelayerAttack()
+        valid_params = {k: v for k, v in kwargs.items() if k in ["delay"]}
+        return DelayerAttack(communications_manager, **valid_params)
     elif attack_name == "Label Flipping":
-        return LabelFlippingAttack()
+        valid_params = {k: v for k, v in kwargs.items() if k in ["poisoned_ratio" , "poisoned_percent", "targeted", "target_label", "target_changed_label", "noise_type"]}
+        return LabelFlippingAttack(**valid_params)
     elif attack_name == "Sample Poisoning":
-        return SamplePoisoningAttack()
+        valid_params = {k: v for k, v in kwargs.items() if k in ["poisoned_ratio" , "poisoned_percent", "targeted", "target_label", "target_changed_label", "noise_type"]}
+        return SamplePoisoningAttack(**valid_params)
     elif attack_name == "Model Poisoning":
-        return ModelPoisonAttack()
+        valid_params = {k: v for k, v in kwargs.items() if k in ["poisoned_ratio", "noise_type"]}
+        return ModelPoisonAttack(**valid_params)
     else:
         return None
+    
+#######################
+# Communication Attacks#
+#######################
 
 
-###################
-# Behaviour Attacks#
-###################
+class CommunicationAttack:
+    # async def __call__(self, *args: Any, **kwds: Any) -> Any:
+    #     return await self.attack(*args, **kwds)
 
-
-class BehaviourAttack:
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        return self.attack(*args, **kwds)
-
-    def attack(self, received_weights):
+    @abstractmethod
+    async def attack(self, received_weights):
         """
         Function to perform the attack on the received weights. It should return the
         attacked weights.
@@ -57,17 +66,161 @@ class BehaviourAttack:
         raise NotImplementedError
 
 
-class GLLNeuronInversionAttack(BehaviourAttack):
+class DelayerAttack(CommunicationAttack):
+    def __init__(self, communications_manager, delay):
+        super().__init__()
+        self.communications_manager = communications_manager
+        self.delay = delay
+
+    def delay_decorator(delay):
+        """
+        Decorator that adds a delay to the original method.
+        """
+        def decorator(func):
+            @wraps(func)
+            async def wrapper(self, *args, **kwargs):
+                logging.info(f"[DelayerAttack] Adding delay of {delay} seconds")
+                await asyncio.sleep(delay)
+                return await func(self, *args, **kwargs)  # Call the original method
+            return wrapper
+        return decorator
+
+    def inject_malicious_behaviour(self, target_class, method_name):
+        """
+        Inject the decorator into the target class's method.
+        
+        Args:
+            target_class: Class where the method to be replaced is located.
+            method_name: Name of the original method.
+        """
+        # Get the original method
+        original_method = getattr(target_class, method_name)
+
+        # Apply the decorator to the original method
+        decorated_method = self.delay_decorator(self.delay)(original_method)
+
+        # Replace the method in the class with the decorated method
+        setattr(target_class, method_name, decorated_method)
+
+    async def attack(self):
+        logging.info("Creating [DelayerAttack]")
+        self.inject_malicious_behaviour(self.communications_manager.__class__, "handle_model_message")
+
+#################
+# Dataset Attacks#
+#################
+
+
+class DatasetAttack:
+    @abstractmethod
+    def setMaliciousDataset(self, dataset):
+        raise NotImplementedError
+
+
+class LabelFlippingAttack(DatasetAttack):
+    def __init__(self, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type):
+        super().__init__()
+        self.dataset = None
+        self.poisoned_percent=poisoned_percent
+        self.poisoned_ratio=poisoned_ratio
+        self.targeted=targeted
+        self.target_label=target_label
+        self.target_changed_label=target_changed_label
+        self.noise_type=noise_type
+
+    def setMaliciousDataset(self, dataset):
+        logging.info(f"[LabelFlippingAttack] Performing Label Flipping attack targeted {self.targeted}")
+        self.dataset = DataModule(
+            train_set=dataset.train_set,
+            train_set_indices=dataset.train_set_indices,
+            test_set=dataset.test_set,
+            test_set_indices=dataset.test_set_indices,
+            local_test_set_indices=dataset.local_test_set_indices,
+            num_workers=dataset.num_workers,
+            partition_id=dataset.partition_id,
+            partitions_number=dataset.partitions_number,
+            batch_size=dataset.batch_size,
+            label_flipping=True,
+            poisoned_percent=self.poisoned_percent,
+            poisoned_ratio=self.poisoned_ratio,
+            targeted=self.targeted,
+            target_label=self.target_label,
+            target_changed_label=self.target_changed_label,
+            noise_type=self.noise_type,
+        )
+        return self.dataset
+
+
+class SamplePoisoningAttack(DatasetAttack):
+    def __init__(self, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type):
+        super().__init__()
+        self.dataset = None
+        self.poisoned_percent=poisoned_percent
+        self.poisoned_ratio=poisoned_ratio
+        self.targeted=targeted
+        self.target_label=target_label
+        self.target_changed_label=target_changed_label
+        self.noise_type=noise_type
+
+    def setMaliciousDataset(self, dataset):
+        logging.info("[SamplePoisoningAttack] Performing Sample Poisoning attack")
+        self.dataset = DataModule(
+            train_set=dataset.train_set,
+            train_set_indices=dataset.train_set_indices,
+            test_set=dataset.test_set,
+            test_set_indices=dataset.test_set_indices,
+            local_test_set_indices=dataset.local_test_set_indices,
+            num_workers=dataset.num_workers,
+            partition_id=dataset.partition_id,
+            partitions_number=dataset.partitions_number,
+            batch_size=dataset.batch_size,
+            data_poisoning=True,
+            poisoned_percent=self.poisoned_percent,
+            poisoned_ratio=self.poisoned_ratio,
+            targeted=self.targeted,
+            target_label=self.target_label,
+            target_changed_label=self.target_changed_label,
+            noise_type=self.noise_type,
+        )
+        return self.dataset
+
+
+###############
+# Model Attacks#
+###############
+
+
+class ModelAttack:
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.ModelAttack(*args, **kwds)
+    
+    @abstractmethod
+    def ModelAttack(self, received_weights):
+        raise NotImplementedError
+
+
+class ModelPoisonAttack(ModelAttack):
+    def __init__(self, poisoned_ratio, noise_type):
+        super().__init__()
+        self.model = None
+        self.poisoned_ratio = poisoned_ratio
+        self.noise_type = noise_type
+
+    def ModelAttack(self, received_weights):
+        logging.info("[ModelPoisonAttack] Performing model poison attack")
+        received_weights = modelPoison(received_weights, self.poisoned_ratio, self.noise_type)
+        return received_weights
+
+ 
+class GLLNeuronInversionAttack(ModelAttack):
     """
     Function to perform neuron inversion attack on the received weights.
     """
 
-    def __init__(self, strength=5.0, perc=1.0):
+    def __init__(self):
         super().__init__()
-        self.strength = strength
-        self.perc = perc
 
-    def attack(self, received_weights):
+    def ModelAttack(self, received_weights):
         logging.info("[GLLNeuronInversionAttack] Performing neuron inversion attack")
         lkeys = list(received_weights.keys())
         logging.info(f"Layer inverted: {lkeys[-2]}")
@@ -75,18 +228,17 @@ class GLLNeuronInversionAttack(BehaviourAttack):
         return received_weights
 
 
-class NoiseInjectionAttack(BehaviourAttack):
+class NoiseInjectionAttack(ModelAttack):
     """
     Function to perform noise injection attack on the received weights.
     """
 
-    def __init__(self, strength=10000, perc=1.0):
+    def __init__(self, strength=10000):
         super().__init__()
         self.strength = strength
-        self.perc = perc
 
-    def attack(self, received_weights):
-        logging.info("[NoiseInjectionAttack] Performing noise injection attack")
+    def ModelAttack(self, received_weights):
+        logging.info(f"[NoiseInjectionAttack] Performing noise injection attack with a strength of {self.strength}")
         lkeys = list(received_weights.keys())
         for k in lkeys:
             logging.info(f"Layer noised: {k}")
@@ -94,7 +246,7 @@ class NoiseInjectionAttack(BehaviourAttack):
         return received_weights
 
 
-class SwappingWeightsAttack(BehaviourAttack):
+class SwappingWeightsAttack(ModelAttack):
     """
     Function to perform swapping weights attack on the received weights. Note that this
     attack performance is not consistent due to its stochasticity.
@@ -109,7 +261,7 @@ class SwappingWeightsAttack(BehaviourAttack):
         super().__init__()
         self.layer_idx = layer_idx
 
-    def attack(self, received_weights):
+    def ModelAttack(self, received_weights):
         logging.info("[SwappingWeightsAttack] Performing swapping weights attack")
         lkeys = list(received_weights.keys())
         wm = received_weights[lkeys[self.layer_idx]]
@@ -143,113 +295,3 @@ class SwappingWeightsAttack(BehaviourAttack):
         if self.layer_idx + 2 < len(lkeys):
             received_weights[lkeys[self.layer_idx + 2]] = received_weights[lkeys[self.layer_idx + 2]][:, nsort]
         return received_weights
-
-
-class DelayerAttack(BehaviourAttack):
-    """
-    Function to perform delayer attack on the received weights. It delays the
-    weights for an indefinite number of rounds.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.weights = None
-
-    def attack(self, received_weights):
-        logging.info("[DelayerAttack] Performing delayer attack")
-        if self.weights is None:
-            self.weights = deepcopy(received_weights)
-        return self.weights
-
-
-#################
-# Dataset Attacks#
-#################
-
-
-class DatasetAttack:
-    def SetMaliciousDataset(self):
-        raise NotImplementedError
-
-
-class LabelFlippingAttack(DatasetAttack):
-    def __init__(self):
-        super().__init__()
-        self.dataset = None
-
-    def setMaliciousDataset(
-        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type
-    ):
-        logging.info(f"[LabelFlippingAttack] Performing Label Flipping attack targeted {targeted}")
-        self.dataset = DataModule(
-            train_set=dataset.train_set,
-            train_set_indices=dataset.train_set_indices,
-            test_set=dataset.test_set,
-            test_set_indices=dataset.test_set_indices,
-            local_test_set_indices=dataset.local_test_set_indices,
-            num_workers=dataset.num_workers,
-            partition_id=dataset.partition_id,
-            partitions_number=dataset.partitions_number,
-            batch_size=dataset.batch_size,
-            label_flipping=True,
-            poisoned_percent=poisoned_percent,
-            poisoned_ratio=poisoned_ratio,
-            targeted=targeted,
-            target_label=target_label,
-            target_changed_label=target_changed_label,
-            noise_type=noise_type,
-        )
-        return self.dataset
-
-
-class SamplePoisoningAttack(DatasetAttack):
-    def __init__(self):
-        super().__init__()
-        self.dataset = None
-
-    def setMaliciousDataset(
-        self, dataset, poisoned_ratio, poisoned_percent, targeted, target_label, target_changed_label, noise_type
-    ):
-        logging.info("[SamplePoisoningAttack] Performing Sample Poisoning attack")
-        self.dataset = DataModule(
-            train_set=dataset.train_set,
-            train_set_indices=dataset.train_set_indices,
-            test_set=dataset.test_set,
-            test_set_indices=dataset.test_set_indices,
-            local_test_set_indices=dataset.local_test_set_indices,
-            num_workers=dataset.num_workers,
-            partition_id=dataset.partition_id,
-            partitions_number=dataset.partitions_number,
-            batch_size=dataset.batch_size,
-            data_poisoning=True,
-            poisoned_percent=poisoned_percent,
-            poisoned_ratio=poisoned_ratio,
-            targeted=targeted,
-            target_label=target_label,
-            target_changed_label=target_changed_label,
-            noise_type=noise_type,
-        )
-        return self.dataset
-
-
-###############
-# Model Attacks#
-###############
-
-
-class ModelAttack:
-    def SetMaliciousModel(self):
-        raise NotImplementedError
-
-
-class ModelPoisonAttack(ModelAttack):
-    def __init__(self):
-        super().__init__()
-        self.model = None
-
-    def setMaliciousModel(self, model, poisoned_ratio, noise_type):
-        logging.info("[ModelPoisonAttack] Performing model poison attack")
-        poisoned_state_dict = modelPoison(OrderedDict(model.state_dict()), poisoned_ratio, noise_type)
-        model.load_state_dict(poisoned_state_dict)
-        self.model = model
-        return self.model

@@ -4,7 +4,7 @@ import os
 
 import docker
 
-from nebula.addons.attacks.attacks import BehaviourAttack, DatasetAttack, ModelAttack, create_attack
+from nebula.addons.attacks.attacks import CommunicationAttack, DatasetAttack, ModelAttack, create_attack
 from nebula.addons.functions import print_msg_box
 from nebula.addons.reporter import Reporter
 from nebula.core.aggregation.aggregator import create_aggregator, create_malicious_aggregator, create_target_aggregator
@@ -586,21 +586,17 @@ class MaliciousNode(Engine):
             trainer,
             security,
         )
-        self.attack = create_attack(config.participant["adversarial_args"]["attacks"])
-        self.poisoned_ratio = config.participant["adversarial_args"]["poisoned_ratio"]
-        self.poisoned_percent = config.participant["adversarial_args"]["poisoned_sample_percent"]
-        self.targeted = config.participant["adversarial_args"]["targeted"]
-        self.target_label = config.participant["adversarial_args"]["target_label"]
-        self.target_changed_label = config.participant["adversarial_args"]["target_changed_label"]
-        self.noise_type = config.participant["adversarial_args"]["noise_type"]
+
+        attack_name = config.participant["adversarial_args"]["attacks"]
+        attack_params = {
+             key: int(value) if isinstance(value, str) and value.isdigit() else value
+            for key, value in config.participant["adversarial_args"].get("attack_params", {}).items()
+        }
+        self.attack = create_attack(attack_name, self._cm ,**attack_params)
+        self.model = model
 
         if isinstance(self.attack, DatasetAttack):
-            self.trainer.set_data(self.attack.setMaliciousDataset(
-                dataset, self.poisoned_ratio, self.poisoned_percent, self.targeted, self.target_label, self.target_changed_label, self.noise_type
-            ))
-
-        if isinstance(self.attack, ModelAttack):
-            self.trainer.set_model(self.attack.setMaliciousModel(model, self.poisoned_ratio, self.noise_type))
+            self.trainer.set_data(self.attack.setMaliciousDataset(dataset))
 
         self.fit_time = 0.0
         self.extra_time = 0.0
@@ -611,7 +607,14 @@ class MaliciousNode(Engine):
         self.aggregator_bening = self._aggregator
 
     async def _extended_learning_cycle(self):
-        if isinstance(self.attack, BehaviourAttack):
+        if isinstance(self.attack, CommunicationAttack):
+            if self.round in range(self.round_start_attack, self.round_stop_attack):
+                logging.info("Changing communications maliciously...")
+                await self.attack.attack()
+            elif self.round == self.round_stop_attack:
+                logging.info("Stoping malicious communications...")
+        
+        if isinstance(self.attack, ModelAttack):
             if self.round in range(self.round_start_attack, self.round_stop_attack):
                 logging.info("Changing aggregation function maliciously...")
                 self._aggregator = create_malicious_aggregator(self._aggregator, self.attack)
