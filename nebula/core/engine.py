@@ -642,7 +642,7 @@ class Engine:
             if self.node_selection_strategy_enabled:
                 #if "distance" not in self.nss_selector:
                 # Extract Features needed for Node Selection Strategy
-                self.nss_extract_features()
+                self.__nss_extract_features()
                 # Broadcast Features
                 logging.info("Broadcasting NSS features to the rest of the topology ...")
                 logging.info("Broadcasting NSS features to the rest of the topology ...")
@@ -927,20 +927,25 @@ class AggregatorNode(Engine):
         )
 
     async def _extended_learning_cycle(self):
+        start_time = 0
+        end_time = 0
         # Define the functionality of the aggregator node
-        start_time = time.time()
         await self.trainer.test()
 
         if self.node_selection_strategy_enabled and (self.nss_selector == "distance" or self.nss_selector == "distance-voting"):
             if self.node_selection_strategy_selector.should_train():
                 logging.info("[DistanceSelector] I am training this round")
                 self.node_selection_strategy_selector.reset_votes()
+                start_time = time.time()
                 await self.trainer.train()
+                end_time = time.time()
             else:
                 self.node_selection_strategy_selector.reset_votes()
                 logging.info("[DistanceSelector] I am not training this round")
         else:
+            start_time = time.time()
             await self.trainer.train()
+            end_time = time.time()
 
         if self.node_selection_strategy_enabled:
             if self.nss_selector == "distance" or self.nss_selector == "distance-voting":
@@ -952,6 +957,50 @@ class AggregatorNode(Engine):
                     await self.trainer.train()
                     await self.trainer.train()
                     self.node_selection_strategy_selector.already_activated = True
+                    
+        train_last_time = end_time - start_time
+        isgpu = False
+        gpu_powers = 0
+
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            devices = pynvml.nvmlDeviceGetCount()
+            isgpu = True
+        except Exception:
+            logging.exception("errror")
+
+        if isgpu:
+            gpu_powers = 0
+            for i in range(devices):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                # gpu_percent = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
+                gpu_power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0
+                gpu_powers += gpu_power
+            logging.info("gpu powers ", gpu_powers)
+
+        cpu_percents = psutil.cpu_percent(percpu=True)
+        cpu_util = [cpu_percents[i] for i in self.cpu_index]
+
+        # calculate sustainability metrics
+        train_cpu_energy_consumption, train_gpu_energy_consumption = get_sustain_energy_consumption(
+            gpu_powers, self.cpu_models_tdp, cpu_util, train_last_time, self.pue
+        )
+        train_cpu_carbon_emission, train_gpu_carbon_emission = get_sustain_carbon_emission(
+            self.carbon_intensity, self.renewable_energy, train_cpu_energy_consumption, train_gpu_energy_consumption
+        )
+
+        self.train_cpu_energy_consumption += train_cpu_energy_consumption
+        self.train_gpu_energy_consumption += train_gpu_energy_consumption
+        self.train_cpu_carbon_emission += train_cpu_carbon_emission
+        self.train_gpu_carbon_emission += train_gpu_carbon_emission
+
+        # add to the total energy and carbon
+        self.total_energy_consumption = (
+            self.total_energy_consumption + train_cpu_energy_consumption + train_gpu_energy_consumption
+        )
+        self.total_carbon_emission = self.total_carbon_emission + train_cpu_carbon_emission + train_gpu_carbon_emission
 
         if self.lie_atk:
             from nebula.addons.attacks.poisoning.update_manipulation import update_manipulation_LIE

@@ -672,6 +672,8 @@ class CommunicationsManager:
 
     async def send_message(self, dest_addr, message):
         try:
+            if dest_addr not in self.connections:
+                return
             conn = self.connections[dest_addr]
             await conn.send(data=message)
         except Exception as e:

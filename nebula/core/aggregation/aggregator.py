@@ -258,7 +258,7 @@ class Aggregator(ABC):
                     #     logging.info(f"🔄  get_aggregation | Removing connection from {node} as it was not selected by the NSS Selector.")
                     #     await self.engine.cm.disconnect(node)
         logging.info(f"🔄  get_aggregation | Final nodes for aggregation: {self._pending_models_to_aggregate.keys()}")
-
+        agg_start_timestamp = time.time()
         aggregated_result = self.run_aggregation(self._pending_models_to_aggregate)
         agg_end_timestamp = time.time()
         agg_time = agg_end_timestamp - agg_start_timestamp

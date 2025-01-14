@@ -99,6 +99,7 @@ core = [
     "web3==6.20.0",
     "geopandas==1.0.1",
     "shapely==2.0.6",
+    "reverse-geocode==1.6.5",
 ]
 frontend = [
     "aiosqlite==0.20.0",

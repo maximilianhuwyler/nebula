@@ -8,6 +8,7 @@ import subprocess
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
+import reverse_geocode
 
 
 def normalize_cpu_string(cpu_string):
@@ -85,15 +86,38 @@ def get_carbon_intensity(longitude, latitude):
         jsonFilePath="ne_10m_admin_0_countries/global_energy_mix.json",
         shpFilePath="ne_10m_admin_0_countries/ne_10m_admin_0_countries.shp",
     )
-    for _, row in world_map.iterrows():
-        try:
-            if row["geometry"].contains(point):
-                return carbon_intensity_data[row["ISO_A3"]]["carbon_intensity"]
-        except Exception as e:
-            print(f"error {e}")
-            logging.exception(f"error {e}")
-            return 100
-    return 500
+        
+    default_intensity = 475  # Global average carbon intensity as fallback
+    
+    iso_columns = ['ISO_A3', 'ISO3', 'ISO_3', 'ADMIN', 'ADM0_A3']
+    iso_column = None
+    for col in iso_columns:
+        if col in world_map.columns:
+            iso_column = col
+            logging.info(f"Found ISO column: {col}")
+            break
+        
+    if iso_column is not None:
+        for _, row in world_map.iterrows():
+            try:
+                if row["geometry"].contains(point):
+                    iso_code = row[iso_column]
+                    if iso_code in carbon_intensity_data:
+                        return carbon_intensity_data[iso_code]["carbon_intensity"]
+                    logging.warning(f"No carbon intensity data for ISO code: {iso_code}")
+                    return default_intensity
+            except Exception as e:
+                logging.exception(f"Error processing geometry: {e}")
+                continue
+    else:
+        location = reverse_geocode.search([(latitude, longitude)])[0]
+        iso_code = location["country_code"].upper()
+        logging.info(f"Using reverse geocoding to get ISO code: {iso_code}")
+        if iso_code in carbon_intensity_data:
+            return carbon_intensity_data[iso_code]["carbon_intensity"]
+    
+    logging.warning("Could not find country for given coordinates")
+    return default_intensity
 
 
 def get_sustain_energy_consumption(gpu_powers, cpu_models_tdp, cpu_util, last_time, pue):

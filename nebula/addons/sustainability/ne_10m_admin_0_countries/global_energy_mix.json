@@ -482,7 +482,7 @@
         "wind_TWh": 4.23,
         "year": 2022
     },
-    "ESP": {
+    "ES": {
         "biofuel_TWh": 6.82,
         "carbon_intensity": 217.422,
         "coal_TWh": 7.62,
@@ -490,7 +490,7 @@
         "fossil_TWh": 106.29,
         "gas_TWh": 87.14,
         "hydroelectricity_TWh": 18.79,
-        "iso_code": "ESP",
+        "iso_code": "ES",
         "low_carbon_TWh": 178.87,
         "nuclear_TWh": 58.53,
         "oil_TWh": 11.53,
