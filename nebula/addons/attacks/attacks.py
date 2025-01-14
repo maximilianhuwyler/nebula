@@ -48,6 +48,41 @@ def create_attack(attack_name, communications_manager, **kwargs):
     else:
         return None
     
+async def create_malicious_behaviour(function_route: str, malicious_behaviour):
+        """
+        Replace dinamically a function to a malicious behaviour.
+ 
+        Args:
+            function_route (str): Route to class and method, format: 'module.class.method'.
+            malicious_behaviour (callable): Malicious function that will replace the previous one.
+ 
+        Returns:
+            None
+         """
+        try:
+            *module_route, function_name = function_route.rsplit(".", maxsplit=2)
+            module = module_route[0]
+            class_name = module_route[1]
+            # class_name, function_name = class_and_func.split(".")
+            logging.info(f"[FER] module = {module} class name = {class_name} function name = {function_name}")
+
+            # Import module
+            module_obj = importlib.import_module(module)
+
+            # get class
+            changing_class = getattr(module_obj, class_name)
+
+            # Verify class got that function
+            if not hasattr(changing_class, function_name):
+                raise AttributeError(f"Class '{class_name}' got no method named: '{function_name}'.")
+
+            # Replace old method to new function
+            setattr(changing_class, function_name, malicious_behaviour)
+            logging.info(f"Function '{function_name}' has been replaced with '{malicious_behaviour.__name__}'.")
+        except Exception as e:
+            logging.error(f"Error replacing function: {e}")
+
+
 #######################
 # Communication Attacks#
 #######################
@@ -72,7 +107,7 @@ class DelayerAttack(CommunicationAttack):
         self.communications_manager = communications_manager
         self.delay = delay
 
-    def delay_decorator(delay):
+    def delay_decorator(self, delay):
         """
         Decorator that adds a delay to the original method.
         """
