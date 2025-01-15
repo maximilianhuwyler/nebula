@@ -18,7 +18,7 @@ class DistanceSelector(Selector):
     MIN_AMOUNT_OF_SELECTED_NEIGHBORS = 1
     MAX_PERCENT_SELECTABLE_NEIGHBORS = 0.7
 
-    def __init__(self, config=None, voting=False, threshold=0):
+    def __init__(self, config=None, voting=False, sustainability=False, threshold=0.5):
         super().__init__(config)
         self.config = config
         self.stop_training = False
@@ -28,7 +28,8 @@ class DistanceSelector(Selector):
         self.threshold = threshold
         self.rounds_without_training = 0
         self.voting_enabled = voting
-        logging.info("[DistanceSelector] Initialized")
+        self.sustainability_enabled = sustainability
+        logging.info(f"[DistanceSelector] Initialized | Voting: {voting} (threshold: {threshold}) | Sustainability: {sustainability}")
 
     def should_train(self):
         if not self.voting_enabled:
@@ -68,7 +69,7 @@ class DistanceSelector(Selector):
             logging.info(f"[DistanceSelector] Sending Votes {self.selected_nodes}")
             return self.selected_nodes
 
-        neighbors = self.neighbors_list.copy()  # node.cm.get_all_addrs_current_connections(only_direct=True)
+        neighbors = self.neighbors_list.copy()
 
         if len(neighbors) == 0:
             logging.error(
@@ -79,9 +80,9 @@ class DistanceSelector(Selector):
         logging.info(f"[DistanceSelector] available neighbors: {neighbors}")
 
         distances = {}
+        sustainability_scores = {}
 
         pending_models = node.aggregator.get_pending_models_to_aggregate()
-
         local_model = pending_models[node.addr][0]
 
         for device in pending_models:
@@ -89,7 +90,15 @@ class DistanceSelector(Selector):
                 neighbor_model = pending_models[device][0]
                 neighbor_distance = cosine_metric(local_model, neighbor_model, similarity=True)
                 distances[device] = neighbor_distance
-
+                # Get sustainability score from node features if available
+                if self.sustainability_enabled and device in self.features:
+                    sustainability_scores[device] = self.features[device].get('sustainability', 0)
+                else:
+                    sustainability_scores[device] = 0
+        
+        logging.info(f"[DistanceSelector] distances: {distances}")
+        logging.info(f"[DistanceSelector] sustainability_scores: {sustainability_scores}")            
+        
         distance_values = distances.values()
         avg_distance = mean(distance_values)
         std_dev_distance = stdev(distance_values)
@@ -108,18 +117,33 @@ class DistanceSelector(Selector):
 
         elif not self.final_list:
             self.number_votes = 0
-            self.selected_nodes = []
+            distance_selected_nodes = []
+            
+            # First filter by distance
             for neighbor in distances:
                 if limit <= distances[neighbor]:
                     logging.info(f"[DistanceSelector] selected_node: {neighbor}, distance: {distances[neighbor]}")
-                    self.selected_nodes.append(neighbor)
+                    distance_selected_nodes.append(neighbor)
                 else:
                     logging.info(f"[DistanceSelector] NOT selected_node: {neighbor}, distance: {distances[neighbor]}")
+            
+            # Then filter by sustainability if enabled
+            if self.sustainability_enabled and distance_selected_nodes:
+                # Calculate average sustainability score
+                avg_sustainability = mean([sustainability_scores[node] for node in distance_selected_nodes])
+                # Select nodes with above average sustainability
+                self.selected_nodes = [
+                    node for node in distance_selected_nodes 
+                    if sustainability_scores[node] >= avg_sustainability
+                ]
+                logging.info(f"[DistanceSelector] Nodes after sustainability filter: {self.selected_nodes}")
+            else:
+                self.selected_nodes = distance_selected_nodes
+
             self.selected_nodes = self.selected_nodes + [node.addr]
             self.final_list = True
 
         # mandar voto
-
         message = node.cm.mm.generate_vote_message()
         await node.cm.send_message_to_neighbors(message, neighbors=self.selected_nodes)
 

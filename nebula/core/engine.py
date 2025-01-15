@@ -128,6 +128,9 @@ class Engine:
             elif self.nss_selector == "distance-voting":
                 threshold = float(config.participant["node_selection_strategy_args"]["parameter"])
                 self.node_selection_strategy_selector = DistanceSelector(voting=True, threshold=threshold)
+            elif self.nss_selector == "distance-voting-sustainability":
+                threshold = float(config.participant["node_selection_strategy_args"]["parameter"])
+                self.node_selection_strategy_selector = DistanceSelector(voting=True, sustainability=True, threshold=threshold)
             elif self.nss_selector == "distribution":
                 self.node_selection_strategy_selector = DistributionSelector(self.config)
                 self.node_selection_strategy_parameter = config.participant["node_selection_strategy_args"]["parameter"]
@@ -932,7 +935,7 @@ class AggregatorNode(Engine):
         # Define the functionality of the aggregator node
         await self.trainer.test()
 
-        if self.node_selection_strategy_enabled and (self.nss_selector == "distance" or self.nss_selector == "distance-voting"):
+        if self.node_selection_strategy_enabled and (self.nss_selector == "distance" or self.nss_selector == "distance-voting" or self.nss_selector == "distance-voting-sustainability"):
             if self.node_selection_strategy_selector.should_train():
                 logging.info("[DistanceSelector] I am training this round")
                 self.node_selection_strategy_selector.reset_votes()
@@ -948,7 +951,7 @@ class AggregatorNode(Engine):
             end_time = time.time()
 
         if self.node_selection_strategy_enabled:
-            if self.nss_selector == "distance" or self.nss_selector == "distance-voting":
+            if self.nss_selector == "distance" or self.nss_selector == "distance-voting" or self.nss_selector == "distance-voting-sustainability":
                 if self.node_selection_strategy_selector.stop_training:
                     self.node_selection_strategy_selector.stop_training = False
                     logging.info("[DistanceSelector] DetectorSelector repeating four training rounds")
