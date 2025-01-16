@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from copy import deepcopy
 from typing import Any
 
@@ -172,8 +171,8 @@ class DelayerAttack(Attack):
     async def attack(self):
         logging.info("[DelayerAttack] Performing delayer attack")
 
-        logging.info("Delaying time from 30 seconds")
-        time.sleep(30)
+        logging.info("Delaying time from 35 seconds")
+        await asyncio.sleep(35)
         logging.info("Delaying time finished")
 
 
@@ -185,19 +184,24 @@ class FloodingAttack(Attack):
 
     def __init__(self):
         super().__init__()
+        self.scaled_repetitions = None
 
     async def attack(self, cm: CommunicationsManager, addr, num_round, repetitions=2, interval=0.05):
         logging.info("[FloodingAttack] Performing flood attack")
-        neighbors = set(await cm.get_addrs_current_connections(only_direct=True))
+        neighbors = set(await cm.get_addrs_current_connections(only_direct=True, myself=True))
         logging.info(f"Neighbors: {neighbors}")
-
         logging.info(f"Round: {num_round}")
         logging.info(f"Interval: {interval}")
         logging.info(f"Repetitions: {repetitions}")
-        scaled_repetitions = len(neighbors) * repetitions
-        logging.info(f"Total repetitions: {scaled_repetitions}")
+
+        if self.scaled_repetitions is None:
+            self.scaled_repetitions = len(neighbors) * repetitions
+        else:
+            self.scaled_repetitions = self.scaled_repetitions + (num_round - 3)
+        logging.info(f"Total repetitions: {self.scaled_repetitions}")
+
         for nei in neighbors:
-            for i in range(scaled_repetitions):
+            for i in range(self.scaled_repetitions):
                 message_data = cm.mm.generate_flood_attack_message(
                     attacker_id=addr,
                     frequency=int(i),

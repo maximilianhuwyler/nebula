@@ -205,7 +205,6 @@ class CommunicationsManager:
         )
         try:
             await self.engine.event_manager.trigger_event(source, message)
-            # self.store_receive_timestamp(source, "federation")
         except Exception as e:
             logging.exception(
                 f"📝  handle_federation_message | Error while processing: {message.action} {message.arguments} | {e}"

@@ -7,7 +7,7 @@ import docker
 from nebula.addons.attacks.attacks import create_attack
 from nebula.addons.functions import print_msg_box
 from nebula.addons.reporter import Reporter
-from nebula.core.aggregation.aggregator import create_aggregator, create_malicious_aggregator, create_target_aggregator
+from nebula.core.aggregation.aggregator import create_aggregator, create_malicious_aggregator
 from nebula.core.eventmanager import EventManager, event_handler
 from nebula.core.network.communications import CommunicationsManager
 from nebula.core.pb import nebula_pb2
@@ -120,18 +120,6 @@ class Engine:
             title="Logging information",
         )
 
-        self.with_reputation = self.config.participant["defense_args"]["with_reputation"]
-        self.is_dynamic_topology = self.config.participant["defense_args"]["is_dynamic_topology"]
-        self.is_dynamic_aggregation = self.config.participant["defense_args"]["is_dynamic_aggregation"]
-        self.target_aggregation = (
-            create_target_aggregator(config=self.config, engine=self) if self.is_dynamic_aggregation else None
-        )
-        msg = f"Reputation system: {self.with_reputation}\nDynamic topology: {self.is_dynamic_topology}\nDynamic aggregation: {self.is_dynamic_aggregation}"
-        msg += (
-            f"\nTarget aggregation: {self.target_aggregation.__class__.__name__}" if self.is_dynamic_aggregation else ""
-        )
-        print_msg_box(msg=msg, indent=2, title="Defense information")
-
         self.learning_cycle_lock = Locker(name="learning_cycle_lock", async_lock=True)
         self.federation_setup_lock = Locker(name="federation_setup_lock", async_lock=True)
         self.federation_ready_lock = Locker(name="federation_ready_lock", async_lock=True)
@@ -157,11 +145,11 @@ class Engine:
             ]
         )
 
-        # Register additional callbacks
-        self._event_manager.register_callback(
-            self._reputation_callback,
-            # ... add more callbacks here
-        )
+        # # Register additional callbacks
+        # self._event_manager.register_callback(
+        #     self._reputation_callback,
+        #     # ... add more callbacks here
+        # )
 
         # Reputation
         self.reputation_instance = Reputation(self)
@@ -169,6 +157,25 @@ class Engine:
         self.reputation_with_feedback = {}
         self.rejected_nodes = set()
         self.change_weight_nodes = set()
+
+        self.with_reputation = self.config.participant["defense_args"]["with_reputation"]
+        msg = f"Reputation system: {self.with_reputation}"
+        print_msg_box(msg=msg, indent=2, title="Defense information")
+        # self.is_dynamic_topology = self.config.participant["defense_args"]["is_dynamic_topology"]
+        # self.is_dynamic_aggregation = self.config.participant["defense_args"]["is_dynamic_aggregation"]
+        # self.target_aggregation = (
+        #     create_target_aggregator(config=self.config, engine=self) if self.is_dynamic_aggregation else None
+        # )
+        # msg = f"Reputation system: {self.with_reputation}\nDynamic topology: {self.is_dynamic_topology}\nDynamic aggregation: {self.is_dynamic_aggregation}"
+        # msg += (
+        #     f"\nTarget aggregation: {self.target_aggregation.__class__.__name__}" if self.is_dynamic_aggregation else ""
+        # )
+        # print_msg_box(msg=msg, indent=2, title="Defense information")
+
+        if self.with_reputation:
+            logging.info("Reputation system enabled")
+            federation = self.config.participant["network_args"]["neighbors"].split()
+            self.reputation_instance.init_reputation(federation_nodes=federation)
 
     @property
     def cm(self):
@@ -290,18 +297,18 @@ class Engine:
         logging.info(f"📝  handle_federation_message | Trigger | Received start federation message from {source}")
         await self.create_trainer_module()
 
-    @event_handler(nebula_pb2.FederationMessage, nebula_pb2.FederationMessage.Action.REPUTATION)
-    async def _reputation_callback(self, source, message):
-        malicious_nodes = message.arguments  # List of malicious nodes
-        if self.with_reputation:
-            if len(malicious_nodes) > 0 and not self._is_malicious:
-                if self.is_dynamic_topology:
-                    await self._disrupt_connection_using_reputation(malicious_nodes)
-                if self.is_dynamic_aggregation and self.aggregator != self.target_aggregation:
-                    await self._dynamic_aggregator(
-                        self.aggregator.get_nodes_pending_models_to_aggregate(),
-                        malicious_nodes,
-                    )
+    # @event_handler(nebula_pb2.FederationMessage, nebula_pb2.FederationMessage.Action.REPUTATION)
+    # async def _reputation_callback(self, source, message):
+    #     malicious_nodes = message.arguments  # List of malicious nodes
+    #     if self.with_reputation:
+    #         if len(malicious_nodes) > 0 and not self._is_malicious:
+    #             if self.is_dynamic_topology:
+    #                 await self._disrupt_connection_using_reputation(malicious_nodes)
+    #             if self.is_dynamic_aggregation and self.aggregator != self.target_aggregation:
+    #                 await self._dynamic_aggregator(
+    #                     self.aggregator.get_nodes_pending_models_to_aggregate(),
+    #                     malicious_nodes,
+    #                 )
 
     @event_handler(
         nebula_pb2.FederationMessage,
@@ -467,7 +474,8 @@ class Engine:
                 f"_waiting_model_updates | Aggregation done for round {self.round}, including parameters in local model."
             )
             self.trainer.set_model_parameters(params)
-            await self.calculate_reputation()
+            if self.with_reputation:
+                await self.calculate_reputation()
         else:
             logging.error("Aggregation finished with no parameters")
 
@@ -503,7 +511,7 @@ class Engine:
 
             if self.reputation[nei]["reputation"] is not None:
                 logging.info(f"Reputation of node {nei}: {self.reputation[nei]['reputation']}")
-                if self.reputation[nei]["reputation"] <= 0.6:
+                if self.reputation[nei]["reputation"] < 0.6:
                     self.rejected_nodes.add(nei)
                     logging.info(f"Rejected nodes: {self.rejected_nodes}")
                 elif 0.6 < self.reputation[nei]["reputation"] < 0.8:
@@ -760,8 +768,8 @@ class MaliciousNode(Engine):
         self.fit_time = 0.0
         self.extra_time = 0.0
 
-        self.round_start_attack = 6
-        self.round_stop_attack = 9
+        self.round_start_attack = 7
+        self.round_stop_attack = 10
 
         self.aggregator_bening = self._aggregator
 
