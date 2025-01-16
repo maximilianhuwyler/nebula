@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 import sqlite3
 
 import aiosqlite
@@ -23,10 +24,15 @@ PRAGMA_SETTINGS = [
 
 
 async def setup_database(db_file_location):
-    async with aiosqlite.connect(db_file_location) as db:
-        for pragma in PRAGMA_SETTINGS:
-            await db.execute(pragma)
-        await db.commit()
+    try:
+        async with aiosqlite.connect(db_file_location) as db:
+            for pragma in PRAGMA_SETTINGS:
+                await db.execute(pragma)
+            await db.commit()
+    except PermissionError:
+        logging.info("No permission to create the databases. Change the default databases directory")
+    except Exception as e:
+        logging.exception(f"An error has ocurred during setup_database: {e}")
 
 
 async def ensure_columns(conn, table_name, desired_columns):
@@ -127,7 +133,7 @@ async def initialize_databases():
             "rounds": "TEXT",
             "role": "TEXT",
             "username": "TEXT",
-            "gpu_id" : "TEXT",
+            "gpu_id": "TEXT",
         }
         await ensure_columns(conn, "scenarios", desired_columns)
 
@@ -455,7 +461,7 @@ def scenario_update_record(
     dataset,
     rounds,
     role,
-    gpu_id
+    gpu_id,
 ):
     _conn = sqlite3.connect(scenario_db_file_location)
     _c = _conn.cursor()
@@ -545,22 +551,26 @@ def scenario_set_status_to_completed(scenario_name):
         print(f"Database error: {e}")
 
 
-def get_running_scenario(username=None):
+def get_running_scenario(username=None, get_all=False):
     with sqlite3.connect(scenario_db_file_location) as conn:
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        
+
         if username:
             command = """
-                SELECT * FROM scenarios 
+                SELECT * FROM scenarios
                 WHERE (status = ? OR status = ?) AND username = ?;
             """
             c.execute(command, ("running", "completed", username))
+
+            result = c.fetchone()
         else:
             command = "SELECT * FROM scenarios WHERE status = ? OR status = ?;"
             c.execute(command, ("running", "completed"))
-        
-        result = c.fetchone()
+            if get_all:
+                result = c.fetchall()
+            else:
+                result = c.fetchone()
 
     return result
 

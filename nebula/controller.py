@@ -12,7 +12,6 @@ import time
 
 import docker
 import psutil
-import torch
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -52,90 +51,94 @@ async def read_root():
 async def get_status():
     return {"status": "NEBULA Controller API is running"}
 
+
 @app.get("/resources")
 async def get_resources():
     devices = 0
     gpu_memory_percent = []
-    
+
     # Obtain available RAM
     memory_info = await asyncio.to_thread(psutil.virtual_memory)
-    
+
     if importlib.util.find_spec("pynvml") is not None:
         try:
             import pynvml
+
             await asyncio.to_thread(pynvml.nvmlInit)
             devices = await asyncio.to_thread(pynvml.nvmlDeviceGetCount)
-            
+
             # Obtain GPU info
             for i in range(devices):
                 handle = await asyncio.to_thread(pynvml.nvmlDeviceGetHandleByIndex, i)
                 memory_info_gpu = await asyncio.to_thread(pynvml.nvmlDeviceGetMemoryInfo, handle)
                 memory_used_percent = (memory_info_gpu.used / memory_info_gpu.total) * 100
                 gpu_memory_percent.append(memory_used_percent)
-                
+
         except Exception:  # noqa: S110
             pass
 
     return {
         # "cpu_percent": psutil.cpu_percent(),
-        "gpus" : devices,
-        "memory_percent" : memory_info.percent,
+        "gpus": devices,
+        "memory_percent": memory_info.percent,
         "gpu_memory_percent": gpu_memory_percent,
     }
-    
+
 
 @app.get("/least_memory_gpu")
 async def get_least_memory_gpu():
     gpu_with_least_memory_index = None
-    
+
     if importlib.util.find_spec("pynvml") is not None:
         try:
             import pynvml
+
             await asyncio.to_thread(pynvml.nvmlInit)
             devices = await asyncio.to_thread(pynvml.nvmlDeviceGetCount)
-            
+
             # Obtain GPU info
             for i in range(devices):
                 handle = await asyncio.to_thread(pynvml.nvmlDeviceGetHandleByIndex, i)
                 memory_info = await asyncio.to_thread(pynvml.nvmlDeviceGetMemoryInfo, handle)
                 memory_used_percent = (memory_info.used / memory_info.total) * 100
-                
+
                 # Obtain GPU with less memory available
                 if memory_used_percent > max_memory_used_percent:
                     max_memory_used_percent = memory_used_percent
                     gpu_with_least_memory_index = i
-                
+
         except Exception:  # noqa: S110
             pass
 
     return {
         "gpu_with_least_memory_index": gpu_with_least_memory_index,
     }
-    
-    
+
+
 @app.get("/available_gpus/")
 async def get_available_gpu():
     available_gpus = []
-      
+
     if importlib.util.find_spec("pynvml") is not None:
         try:
             import pynvml
+
             await asyncio.to_thread(pynvml.nvmlInit)
             devices = await asyncio.to_thread(pynvml.nvmlDeviceGetCount)
-            
+
             # Obtain GPU info
             for i in range(devices):
                 handle = await asyncio.to_thread(pynvml.nvmlDeviceGetHandleByIndex, i)
                 memory_info = await asyncio.to_thread(pynvml.nvmlDeviceGetMemoryInfo, handle)
                 memory_used_percent = (memory_info.used / memory_info.total) * 100
-                
+
                 # Obtain available GPUs
                 if memory_used_percent < 5:
                     available_gpus.append(i)
-                        
+
             return {
                 "available_gpus": available_gpus,
-            }                       
+            }
         except Exception:  # noqa: S110
             pass
 
@@ -339,6 +342,7 @@ class Controller:
         self.statistics_port = args.statsport if hasattr(args, "statsport") else 8080
         self.simulation = args.simulation
         self.config_dir = args.config
+        self.db_dir = args.databases if hasattr(args, "databases") else "/opt/nebula"
         self.test = args.test if hasattr(args, "test") else False
         self.log_dir = args.logs
         self.cert_dir = args.certs
@@ -365,7 +369,7 @@ class Controller:
             self.controller_port = SocketUtils.find_free_port()
 
         if not SocketUtils.is_port_open(self.frontend_port):
-            self.frontend_port = SocketUtils.find_free_port()
+            self.frontend_port = SocketUtils.find_free_port(self.controller_port + 1)
 
         if not SocketUtils.is_port_open(self.statistics_port):
             self.statistics_port = SocketUtils.find_free_port(self.frontend_port + 1)
@@ -453,6 +457,7 @@ class Controller:
         else:
             self.run_frontend()
             logging.info(f"NEBULA Frontend is running at http://localhost:{self.frontend_port}")
+            logging.info(f"NEBULA Databases created in {self.db_dir}")
 
         # Watchdog for running additional scripts in the host machine (i.e. during the execution of a federation)
         event_handler = NebulaEventHandler()
@@ -516,7 +521,7 @@ class Controller:
         )
 
     def run_waf(self):
-        network_name = f"{os.environ['USER']}-nebula-net-base"
+        network_name = f"{os.environ['USER']}_nebula-net-base"
         base = DockerUtils.create_docker_network(network_name)
 
         client = docker.from_env()
@@ -537,7 +542,7 @@ class Controller:
 
         container_id_waf = client.api.create_container(
             image="nebula-waf",
-            name=f"{os.environ['USER']}-nebula-waf",
+            name=f"{os.environ['USER']}_nebula-waf",
             detach=True,
             volumes=volumes_waf,
             host_config=host_config_waf,
@@ -571,7 +576,7 @@ class Controller:
 
         container_id = client.api.create_container(
             image="nebula-waf-grafana",
-            name=f"{os.environ['USER']}-nebula-waf-grafana",
+            name=f"{os.environ['USER']}_nebula-waf-grafana",
             detach=True,
             environment=environment,
             host_config=host_config,
@@ -595,7 +600,7 @@ class Controller:
 
         container_id_loki = client.api.create_container(
             image="nebula-waf-loki",
-            name=f"{os.environ['USER']}-nebula-waf-loki",
+            name=f"{os.environ['USER']}_nebula-waf-loki",
             detach=True,
             command=command,
             host_config=host_config_loki,
@@ -619,7 +624,7 @@ class Controller:
 
         container_id_promtail = client.api.create_container(
             image="nebula-waf-promtail",
-            name=f"{os.environ['USER']}-nebula-waf-promtail",
+            name=f"{os.environ['USER']}_nebula-waf-promtail",
             detach=True,
             volumes=volumes_promtail,
             host_config=host_config_promtail,
@@ -646,7 +651,7 @@ class Controller:
         except Exception:
             logging.info("No GPU available for the frontend, nodes will be deploy in CPU mode")
 
-        network_name = f"{os.environ['USER']}-nebula-net-base"
+        network_name = f"{os.environ['USER']}_nebula-net-base"
 
         # Create the Docker network
         base = DockerUtils.create_docker_network(network_name)
@@ -681,6 +686,7 @@ class Controller:
                 f"{self.root_path}:/nebula",
                 "/var/run/docker.sock:/var/run/docker.sock",
                 f"{self.root_path}/nebula/frontend/config/nebula:/etc/nginx/sites-available/default",
+                f"{self.db_dir}/databases:/nebula/nebula/frontend/databases",
             ],
             extra_hosts={"host.docker.internal": "host-gateway"},
             port_bindings={80: self.frontend_port, 8080: self.statistics_port},
@@ -692,7 +698,7 @@ class Controller:
 
         container_id = client.api.create_container(
             image="nebula-frontend",
-            name=f"{os.environ['USER']}-nebula-frontend",
+            name=f"{os.environ['USER']}_nebula-frontend",
             detach=True,
             environment=environment,
             volumes=volumes,
@@ -708,16 +714,16 @@ class Controller:
 
     @staticmethod
     def stop_waf():
-        DockerUtils.remove_containers_by_prefix(f"{os.environ['USER']}-nebula-waf")
+        DockerUtils.remove_containers_by_prefix(f"{os.environ['USER']}_nebula-waf")
 
     @staticmethod
     def stop():
         logging.info("Closing NEBULA (exiting from components)... Please wait")
-        DockerUtils.remove_containers_by_prefix(f"{os.environ['USER']}")
+        DockerUtils.remove_containers_by_prefix(f"{os.environ['USER']}_")
         ScenarioManagement.stop_blockchain()
         ScenarioManagement.stop_participants()
         Controller.stop_waf()
-        DockerUtils.remove_docker_networks_by_prefix(f"{os.environ['USER']}")
+        DockerUtils.remove_docker_networks_by_prefix(f"{os.environ['USER']}_")
         controller_pid_file = os.path.join(os.path.dirname(__file__), "controller.pid")
         try:
             with open(controller_pid_file) as f:

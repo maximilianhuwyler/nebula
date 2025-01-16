@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import sys
+import time
 import zipfile
 from urllib.parse import urlencode
 
@@ -21,7 +22,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 class Settings:
     controller_host: str = os.environ.get("NEBULA_CONTROLLER_HOST")
     controller_port: int = os.environ.get("NEBULA_CONTROLLER_PORT", 5000)
-    resources_threshold: float = 90.0
+    resources_threshold: float = 80.0
     port: int = os.environ.get("NEBULA_FRONTEND_PORT", 6060)
     production: bool = os.environ.get("NEBULA_PRODUCTION", "False") == "True"
     gpu_available: bool = os.environ.get("NEBULA_GPU_AVAILABLE", "False") == "True"
@@ -147,6 +148,7 @@ app.mount("/nebula/static", StaticFiles(directory="static"), name="static")
 
 class ConnectionManager:
     def __init__(self):
+        self.historic_messages = {}
         self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
@@ -156,17 +158,30 @@ class ConnectionManager:
             "type": "control",
             "message": f"Client #{len(self.active_connections)} connected",
         }
-        await self.broadcast(json.dumps(message))
+        try:
+            await self.broadcast(json.dumps(message))
+        except:
+            pass
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+
+    def add_message(self, message):
+        current_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d %H:%M:%S")
+        self.historic_messages.update({
+            current_timestamp : json.loads(message)
+        })
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
+        self.add_message(message)
         for connection in self.active_connections:
             await connection.send_text(message)
+            
+    def get_historic(self):
+        return self.historic_messages
 
 
 manager = ConnectionManager()
@@ -277,6 +292,16 @@ async def nebula_home(request: Request):
     alerts = []
     return templates.TemplateResponse("index.html", {"request": request, "alerts": alerts})
 
+
+@app.get("/nebula/historic")
+async def nebula_ws_historic(session: dict = Depends(get_session)):
+    if session.get("role") == "admin":
+        historic = manager.get_historic()
+        if historic:
+            pretty_historic = historic 
+            return JSONResponse(content=pretty_historic)
+        else:
+            return JSONResponse({"status": "error", "message": "Historic not found"})
 
 @app.get("/nebula/dashboard/{scenario_name}/private", response_class=HTMLResponse)
 async def nebula_dashboard_private(request: Request, scenario_name: str, session: dict = Depends(get_session)):
@@ -435,77 +460,99 @@ async def get_host_resources():
         async with session.get(url) as response:
             if response.status == 200:
                 try:
-                    return await response.json() 
+                    return await response.json()
                 except Exception as e:
                     return {"error": f"Failed to parse JSON: {e}"}
             else:
                 return None
-            
-            
+
+
 async def get_available_gpus():
     url = f"http://{settings.controller_host}:{settings.controller_port}/available_gpus"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 try:
-                    return await response.json()  
+                    return await response.json()
                 except Exception as e:
                     return {"error": f"Failed to parse JSON: {e}"}
             else:
                 return None
-            
-            
+
+
 async def get_least_memory_gpu():
     url = f"http://{settings.controller_host}:{settings.controller_port}/least_memory_gpu"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 try:
-                    return await response.json()  
+                    return await response.json()
                 except Exception as e:
                     return {"error": f"Failed to parse JSON: {e}"}
             else:
                 return None
-    
-    
+
+
 async def check_enough_resources():
     resources = await get_host_resources()
-    
-    mem_percent = resources.get("memory_percent")
-    gpu_memory_percent = resources.get("gpu_memory_percent", [])
 
-    # if cpu_percent >= settings.resources_threshold or mem_percent >= settings.resources_threshold:
+    mem_percent = resources.get("memory_percent")
+
     if mem_percent >= settings.resources_threshold:
         return False
-    elif len(gpu_memory_percent) > 0:
-        for gpu_mem in gpu_memory_percent:
-            if gpu_mem >= settings.resources_threshold:
-                return False
-        
+
     return True
-    
-    
-async def monitor_resources(user):
-    user_data = user_data_store[user]
-    
-    while user_data.scenarios_list_length > 0:
+
+
+async def wait_for_enough_ram():
+    resources = await get_host_resources()
+    initial_ram = resources.get("memory_percent")
+
+    desired_ram = initial_ram * 0.8
+
+    while True:
+        resources = await get_host_resources()
+        actual_ram = resources.get("memory_percent")
+
+        if actual_ram <= desired_ram:
+            break
+
+        await asyncio.sleep(1)
+
+
+async def monitor_resources():
+    while True:
         enough_resources = await check_enough_resources()
         if not enough_resources:
-            running_scenario = get_running_scenario(user)
-            if running_scenario:
-                # Wich card has big memory consumption
-                gpu = await get_least_memory_gpu()
-                # Stop scenario if is using the high memory gpu
-                running_scenario_as_dict = dict(running_scenario)
-                if running_scenario_as_dict["gpu_id"] == gpu.get("available_gpu_index"):
-                    scenario_name = running_scenario_as_dict["name"]
-                    stop_scenario(scenario_name, user)
-                    user_data.scenarios_list_length -= 1
-                    user_data.finish_scenario_event.set()
-                    
-        await asyncio.sleep(5)
+            running_scenarios = get_running_scenario(get_all=True)
+            if running_scenarios:
+                last_running_scenario = running_scenarios.pop()
+                running_scenario_as_dict = dict(last_running_scenario)
+                scenario_name = running_scenario_as_dict["name"]
+                user = running_scenario_as_dict["username"]
+                # Send message of the scenario that has been stopped
+                scenario_exceed_resources = {
+                    "type": "exceed_resources",
+                    "user": user,
+                }
+                try:
+                    await manager.broadcast(json.dumps(scenario_exceed_resources))
+                except Exception:
+                    pass
+                stop_scenario(scenario_name, user)
+                user_data = user_data_store[user]
+                user_data.scenarios_list_length -= 1
+                await wait_for_enough_ram()
+                user_data.finish_scenario_event.set()
 
-    
+        await asyncio.sleep(20)
+
+
+try:
+    asyncio.create_task(monitor_resources())
+except Exception as e:
+    logging.exception(f"Error creating monitoring background_task {e}")
+
 
 @app.get("/nebula/api/dashboard", response_class=JSONResponse)
 @app.get("/nebula/dashboard", response_class=HTMLResponse)
@@ -694,7 +741,10 @@ def update_topology(scenario_name, nodes_list, nodes_config):
 
     tm = TopologyManager(n_nodes=len(nodes_list), topology=matrix, scenario_name=scenario_name)
     tm.update_nodes(nodes_config)
-    tm.draw_graph(path=os.path.join(settings.config_dir, scenario_name, "topology.png"))
+    try:
+        tm.draw_graph(path=os.path.join(settings.config_dir, scenario_name, "topology.png"))
+    except FileNotFoundError:
+        logging.exception("Topology.png not found in config dir")
 
 
 @app.post("/nebula/dashboard/{scenario_name}/node/update")
@@ -743,8 +793,7 @@ async def nebula_update_node(scenario_name: str, request: Request):
 
             try:
                 await manager.broadcast(json.dumps(node_update))
-            except Exception as e:
-                logging.exception(f"Error sending node_update to socketio: {e}")
+            except Exception:
                 pass
 
             return JSONResponse({"message": "Node updated", "status": "success"}, status_code=200)
@@ -876,9 +925,9 @@ def stop_scenario(scenario_name, user):
     from nebula.scenarios import ScenarioManagement
 
     ScenarioManagement.stop_participants(scenario_name)
-    DockerUtils.remove_containers_by_prefix(f"{os.environ.get('NEBULA_CONTROLLER_NAME')}-{user}-participant")
+    DockerUtils.remove_containers_by_prefix(f"{os.environ.get('NEBULA_CONTROLLER_NAME')}_{user}-participant")
     DockerUtils.remove_docker_network(
-        f"{(os.environ.get('NEBULA_CONTROLLER_NAME'))}-{str(user).lower()}-nebula-net-scenario"
+        f"{(os.environ.get('NEBULA_CONTROLLER_NAME'))}_{str(user).lower()}-nebula-net-scenario"
     )
     ScenarioManagement.stop_blockchain()
     scenario_set_status_to_finished(scenario_name)
@@ -905,7 +954,7 @@ async def nebula_stop_scenario(
     if "user" in session:
         user = get_user_by_scenario_name(scenario_name)
         user_data = user_data_store[user]
-        
+
         if session["role"] == "demo":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         # elif session["role"] == "user":
@@ -1213,7 +1262,7 @@ async def node_stopped(scenario_name: str, request: Request):
         if finished:
             stop_scenario(scenario_name, user)
             user_data.nodes_finished.clear()
-            user_data.finish_scenario_event.set()            
+            user_data.finish_scenario_event.set()
             return JSONResponse(
                 status_code=200,
                 content={"message": "All nodes finished, scenario marked as completed."},
@@ -1227,20 +1276,48 @@ async def node_stopped(scenario_name: str, request: Request):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
 
-async def assign_available_gpu(scenario_data, role):    
-    if scenario_data["accelerator"] == "cpu":
-        scenario_data["gpu_id"] = []
+async def assign_available_gpu(scenario_data, role):
+    available_gpus = []
+
+    response = await get_available_gpus()
+    # Obtain available system_gpus
+    available_system_gpus = response.get("available_gpus", None) if response is not None else None
+
+    if available_system_gpus:
+        running_scenarios = get_running_scenario(get_all=True)
+        # Obtain currently used gpus
+        if running_scenarios:
+            running_gpus = []
+            # Obtain associated gpus of the running scenarios
+            for scenario in running_scenarios:
+                scenario_gpus = json.loads(scenario["gpu_id"])
+                # Obtain the list of gpus in use without duplicates
+                for gpu in scenario_gpus:
+                    if gpu not in running_gpus:
+                        running_gpus.append(gpu)
+
+            # Add available system gpus if they are not in use
+            for gpu in available_system_gpus:
+                if gpu not in running_gpus:
+                    available_gpus.append(gpu)
+        else:
+            available_gpus = available_system_gpus
+
+    # Assign gpus based in user role
+    if len(available_gpus) > 0:
+        if role == "user":
+            scenario_data["accelerator"] = "gpu"
+            scenario_data["gpu_id"] = [available_gpus.pop()]
+        elif role == "admin":
+            scenario_data["accelerator"] = "gpu"
+            scenario_data["gpu_id"] = available_gpus
+        else:
+            scenario_data["accelerator"] = "cpu"
+            scenario_data["gpu_id"] = []
     else:
-        response = await get_available_gpus()
-        available_gpus = response.get("available_gpus")
-        if len(available_gpus) > 0:
-            if role == "user":
-                scenario_data["gpu_id"] = [available_gpus.pop()]
-            elif role == "admin":
-                scenario_data["gpu_id"] = available_gpus
-            else:
-                scenario_data["gpu_id"] = []
-    
+        scenario_data["accelerator"] = "cpu"
+        scenario_data["gpu_id"] = []
+
     return scenario_data
 
 
@@ -1268,7 +1345,7 @@ async def run_scenario(scenario_data, role, user):
         dataset=scenario_data["dataset"],
         rounds=scenario_data["rounds"],
         role=role,
-        gpu_id=json.dumps(scenario_data["gpu_id"])
+        gpu_id=json.dumps(scenario_data["gpu_id"]),
     )
 
     # Run the actual scenario
@@ -1305,7 +1382,7 @@ async def run_scenarios(role, user):
             # Waits till the scenario is completed
             while not user_data.finish_scenario_event.is_set() and not user_data.stop_all_scenarios_event.is_set():
                 await asyncio.sleep(1)
-            
+
             # Wait until theres enough resources to launch the next scenario
             while not await check_enough_resources():
                 await asyncio.sleep(1)
@@ -1342,15 +1419,13 @@ async def nebula_dashboard_deployment_run(
         user_data.scenarios_list_length = len(data)
         user_data.scenarios_list = data
         background_tasks.add_task(run_scenarios, session["role"], session["user"])
-        try:
-            asyncio.create_task(monitor_resources(session["user"]))
-        except Exception as e:
-            logging.exception(f"Error creating monitoring background_task {e}")
     else:
         user_data.scenarios_list_length += len(data)
         user_data.scenarios_list.extend(data)
         await asyncio.sleep(3)
-    logging.info(f"Running deployment with {len(data)} scenarios_list_length: {user_data.scenarios_list_length} scenarios")
+    logging.info(
+        f"Running deployment with {len(data)} scenarios_list_length: {user_data.scenarios_list_length} scenarios"
+    )
     return RedirectResponse(url="/nebula/dashboard", status_code=303)
     # return Response(content="Success", status_code=200)
 
