@@ -777,7 +777,7 @@ class MaliciousNode(Engine):
         if type(self.attack).__name__ == "FloodingAttack":
             logging.info("Running Flooding Attack")
             if self.round in range(self.round_start_attack, self.round_stop_attack):
-                await self.attack.attack(self.cm, self.addr, self.round, repetitions=2, interval=0.05)
+                await self.attack.attack(self.cm, self.addr, self.round, repetitions=2, interval=0.1)
 
         if type(self.attack).__name__ == "DelayerAttack":
             logging.info("Running Delayer Attack")

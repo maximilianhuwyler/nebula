@@ -928,7 +928,7 @@ class Reputation:
                     #     f"Round {current_round} | Node {nei} | Percentil 25: {percentil_25} | Percentil 75: {percentil_75}"
                     # )
 
-                k = 0.2
+                k = 0.15
                 prev_mean_latency = prev_mean_latency + k * (percentil_75 - percentil_25)
                 logging.info(f"Round {current_round} | Node {nei} | Mean latency with k: {prev_mean_latency}")
                 logging.info(f"Round {current_round} | Node {nei} | Latency: {latency}")
@@ -1071,6 +1071,7 @@ class Reputation:
             )
 
             normalized_messages = 0.0
+            relative_position = 0
 
             if previous_round >= 4:
                 percentile_25 = Reputation.previous_percentile_25_time_message.get(current_addr_nei, 0)
@@ -1080,13 +1081,22 @@ class Reputation:
 
                 logging.info(f"Round {current_round}. Messages count: {messages_count}")
                 if percentile_85 - percentile_25 == 0:
-                    relative_position = 1
-                    # logging.info(f"Round {current_round}. Relative position: {relative_position}")
-                else:
+                    logging.info(f"Round {current_round}. Percentiles difference is 0")
+                    normalized_messages = 1
+                elif percentile_25 <= messages_count <= percentile_85:
+                    logging.info(f"Round {current_round}. Messages count between percentiles")
+                    normalized_messages = 1
+                elif messages_count < percentile_25:
+                    logging.info(f"Round {current_round}. Messages count below percentile_25")
                     relative_position = (messages_count - percentile_25) / (percentile_85 - percentile_25)
                     logging.info(f"Round {current_round}. Relative position: {relative_position}")
+                    normalized_messages = 1 / (1 + np.exp(-relative_position))
+                else:
+                    logging.info(f"Round {current_round}. Messages count out of percentiles")
+                    relative_position = (messages_count - percentile_25) / (percentile_85 - percentile_25)
+                    logging.info(f"Round {current_round}. Relative position: {relative_position}")
+                    normalized_messages = 1 - 1 / (1 + np.exp(-(relative_position - 1)))
 
-                normalized_messages = 1 - 1 / (1 + np.exp(-(relative_position - 1)))
                 logging.info(f"Round {current_round}. Normalized messages sin max: {normalized_messages}")
                 normalized_messages = max(0.01, normalized_messages)
                 # logging.info(f"Round {current_round}. Normalized messages: {normalized_messages}")

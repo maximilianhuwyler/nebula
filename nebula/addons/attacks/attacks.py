@@ -188,20 +188,21 @@ class FloodingAttack(Attack):
 
     async def attack(self, cm: CommunicationsManager, addr, num_round, repetitions=2, interval=0.05):
         logging.info("[FloodingAttack] Performing flood attack")
-        neighbors = set(await cm.get_addrs_current_connections(only_direct=True, myself=True))
+        neighbors = set(await cm.get_addrs_current_connections(only_direct=True))
         logging.info(f"Neighbors: {neighbors}")
         logging.info(f"Round: {num_round}")
         logging.info(f"Interval: {interval}")
         logging.info(f"Repetitions: {repetitions}")
 
-        if self.scaled_repetitions is None:
-            self.scaled_repetitions = len(neighbors) * repetitions
-        else:
-            self.scaled_repetitions = self.scaled_repetitions + (num_round - 3)
-        logging.info(f"Total repetitions: {self.scaled_repetitions}")
+        # if self.scaled_repetitions is None:
+        #     self.scaled_repetitions = len(neighbors) * repetitions
+        # else:
+        #     self.scaled_repetitions = self.scaled_repetitions + (num_round - 3)
+        scaled_repetitions = num_round * 2
+        logging.info(f"Total repetitions: {scaled_repetitions}")
 
         for nei in neighbors:
-            for i in range(self.scaled_repetitions):
+            for i in range(scaled_repetitions):
                 message_data = cm.mm.generate_flood_attack_message(
                     attacker_id=addr,
                     frequency=int(i),
