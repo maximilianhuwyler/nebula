@@ -132,11 +132,11 @@ class DistanceSelector(Selector):
                 # Calculate average sustainability score
                 avg_sustainability = mean([sustainability_scores[node] for node in distance_selected_nodes])
                 # Select nodes with above average sustainability
-                self.selected_nodes = [
-                    node for node in distance_selected_nodes 
-                    if sustainability_scores[node] >= avg_sustainability
-                ]
-                logging.info(f"[DistanceSelector] Nodes after sustainability filter: {self.selected_nodes}")
+                # self.selected_nodes = [
+                #     node for node in distance_selected_nodes 
+                #     if sustainability_scores[node] >= avg_sustainability
+                # ]
+                logging.info(f"[DistanceSelector] Avg. sustainability: {avg_sustainability} | Nodes after sustainability filter: {self.selected_nodes}")
             else:
                 self.selected_nodes = distance_selected_nodes
 
