@@ -31,8 +31,8 @@ classifiers = {
 class EMNISTModelResNet(NebulaModel):
     def __init__(
         self,
-        input_channels=1,  # Changed default to 1 for MNIST
-        num_classes=10,
+        input_channels=1,
+        num_classes=47,
         learning_rate=1e-3,
         metrics=None,
         confusion_matrix=None,
@@ -40,7 +40,14 @@ class EMNISTModelResNet(NebulaModel):
         implementation="scratch",
         classifier="resnet9",
     ):
-        super().__init__()
+        super().__init__(
+            input_channels=input_channels,
+            num_classes=num_classes,
+            learning_rate=learning_rate,
+            metrics=metrics,
+            confusion_matrix=confusion_matrix,
+            seed=seed
+        )
         if metrics is None:
             metrics = MetricCollection([
                 MulticlassAccuracy(num_classes=num_classes),
@@ -109,7 +116,7 @@ class EMNISTModelResNet(NebulaModel):
 
             if self.implementation in classifiers:
                 model = classifiers[self.classifier]
-                model.fc = torch.nn.Linear(model.fc.in_features, self.num_classes)
+                model.fc = torch.nn.Linear(model.fc.in_features, num_classes)  # Use passed num_classes
                 return model
 
             raise NotImplementedError()

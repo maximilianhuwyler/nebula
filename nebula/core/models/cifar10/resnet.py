@@ -40,7 +40,14 @@ class CIFAR10ModelResNet(NebulaModel):
         implementation="scratch",
         classifier="resnet9",
     ):
-        super().__init__()
+        super().__init__(
+            input_channels=input_channels,
+            num_classes=num_classes,
+            learning_rate=learning_rate,
+            metrics=metrics,
+            confusion_matrix=confusion_matrix,
+            seed=seed
+        )
         if metrics is None:
             metrics = MetricCollection([
                 MulticlassAccuracy(num_classes=num_classes),
