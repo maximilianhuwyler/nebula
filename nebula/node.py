@@ -39,12 +39,15 @@ from nebula.core.models.cifar10.simplemobilenet import SimpleMobileNetV1
 from nebula.core.models.cifar100.cnn import CIFAR100ModelCNN
 from nebula.core.models.emnist.cnn import EMNISTModelCNN
 from nebula.core.models.emnist.mlp import EMNISTModelMLP
+from nebula.core.models.emnist.resnet import EMNISTModelResNet
 from nebula.core.models.fashionmnist.cnn import FashionMNISTModelCNN
 from nebula.core.models.fashionmnist.mlp import FashionMNISTModelMLP
+from nebula.core.models.fashionmnist.resnet import FMNISTModelResNet
 from nebula.core.models.kitsun.mlp import KitsunModelMLP
 from nebula.core.models.militarysar.cnn import MilitarySARModelCNN
 from nebula.core.models.mnist.cnn import MNISTModelCNN
 from nebula.core.models.mnist.mlp import MNISTModelMLP
+from nebula.core.models.mnist.resnet import MNISTModelResNet
 from nebula.core.models.syscall.autoencoder import SyscallModelAutoencoder
 from nebula.core.models.syscall.mlp import SyscallModelMLP
 from nebula.core.models.syscall.svm import SyscallModelSGDOneClassSVM
@@ -131,6 +134,8 @@ async def main(config):
             model = MNISTModelMLP()
         elif model_name == "CNN":
             model = MNISTModelCNN()
+        elif model_name == "ResNet9":
+            model = MNISTModelResNet(classifier="resnet9")
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "FashionMNIST":
@@ -148,6 +153,8 @@ async def main(config):
             model = FashionMNISTModelMLP()
         elif model_name == "CNN":
             model = FashionMNISTModelCNN()
+        elif model_name == "ResNet9":
+            model = FMNISTModelResNet(classifier="resnet9")
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "EMNIST":
@@ -165,6 +172,8 @@ async def main(config):
             model = EMNISTModelMLP()
         elif model_name == "CNN":
             model = EMNISTModelCNN()
+        elif model_name == "ResNet9":
+            model = EMNISTModelResNet(classifier="resnet9")
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "SYSCALL":
