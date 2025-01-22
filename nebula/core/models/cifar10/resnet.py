@@ -1,11 +1,7 @@
-import lightning as pl
-import matplotlib.pyplot as plt
-import seaborn as sns
-import torch
-from torch import nn
-from torchmetrics import MetricCollection
 import matplotlib
 import matplotlib.pyplot as plt
+from torch import nn
+from torchmetrics import MetricCollection
 
 from nebula.core.models.nebulamodel import NebulaModel
 
@@ -14,10 +10,10 @@ plt.switch_backend("Agg")
 import torch
 from torchmetrics.classification import (
     MulticlassAccuracy,
-    MulticlassRecall,
-    MulticlassPrecision,
-    MulticlassF1Score,
     MulticlassConfusionMatrix,
+    MulticlassF1Score,
+    MulticlassPrecision,
+    MulticlassRecall,
 )
 from torchvision.models import resnet18, resnet34, resnet50
 
@@ -33,7 +29,6 @@ classifiers = {
 
 
 class CIFAR10ModelResNet(NebulaModel):
-
     def __init__(
         self,
         input_channels=3,
@@ -47,14 +42,12 @@ class CIFAR10ModelResNet(NebulaModel):
     ):
         super().__init__()
         if metrics is None:
-            metrics = MetricCollection(
-                [
-                    MulticlassAccuracy(num_classes=num_classes),
-                    MulticlassPrecision(num_classes=num_classes),
-                    MulticlassRecall(num_classes=num_classes),
-                    MulticlassF1Score(num_classes=num_classes),
-                ]
-            )
+            metrics = MetricCollection([
+                MulticlassAccuracy(num_classes=num_classes),
+                MulticlassPrecision(num_classes=num_classes),
+                MulticlassRecall(num_classes=num_classes),
+                MulticlassF1Score(num_classes=num_classes),
+            ])
         self.train_metrics = metrics.clone(prefix="Train/")
         self.val_metrics = metrics.clone(prefix="Validation/")
         self.test_metrics = metrics.clone(prefix="Test/")
@@ -104,17 +97,15 @@ class CIFAR10ModelResNet(NebulaModel):
 
                 classifier = nn.Sequential(nn.MaxPool2d(4), nn.Flatten(), nn.Linear(512, num_classes))
 
-                return nn.ModuleDict(
-                    {
-                        "conv1": conv1,
-                        "conv2": conv2,
-                        "res1": res1,
-                        "conv3": conv3,
-                        "conv4": conv4,
-                        "res2": res2,
-                        "classifier": classifier,
-                    }
-                )
+                return nn.ModuleDict({
+                    "conv1": conv1,
+                    "conv2": conv2,
+                    "res1": res1,
+                    "conv3": conv3,
+                    "conv4": conv4,
+                    "res2": res2,
+                    "classifier": classifier,
+                })
 
             if self.implementation in classifiers:
                 model = classifiers[self.classifier]

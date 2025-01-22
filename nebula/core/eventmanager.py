@@ -1,15 +1,14 @@
 import asyncio
-from collections import defaultdict
-from functools import wraps
 import inspect
 import logging
+from collections import defaultdict
+from functools import wraps
 
 
 def event_handler(message_type, action):
     """Decorator for registering an event handler."""
 
     def decorator(func):
-
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             return await func(*args, **kwargs)
@@ -44,6 +43,14 @@ class EventManager:
             else:
                 raise ValueError("The callback must be decorated with @event_handler.")
 
+    def register_callback(self, callback):
+        """Registers a callback for an event."""
+        handler_info = getattr(callback, "_event_handler", None)
+        if handler_info is not None:
+            self.register_event(handler_info, callback)
+        else:
+            raise ValueError("The callback must be decorated with @event_handler.")
+
     def register_event(self, handler_info, callback):
         """Records a callback for a specific event."""
         if callable(callback):
@@ -74,7 +81,7 @@ class EventManager:
                     else:
                         callback(source, message, *args, **kwargs)
                 except Exception as e:
-                    logging.error(f"Error executing callback for {handler_info}: {e}")
+                    logging.exception(f"Error executing callback for {handler_info}: {e}")
         else:
             logging.error(f"No callbacks registered for event {handler_info}")
 

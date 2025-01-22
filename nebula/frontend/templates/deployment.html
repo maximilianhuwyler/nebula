@@ -204,7 +204,7 @@
                     <h5 class="step-number">Deployment <i class="fa fa-cloud-upload"></i></h5>
                     <h5 class="step-title">Deployment type</h5>
                     <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="deploymentRadioOptions" id="process-radio" value="process" checked>
+                        <input class="form-check-input" type="radio" name="deploymentRadioOptions" id="process-radio" value="process">
                         <label class="form-check-label" for="process-radio">Processes</label>
                         <small id="processHelp" class="form-text text-muted"></small>
                             <i id="processHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
@@ -212,7 +212,7 @@
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="deploymentRadioOptions" id="docker-radio"
-                            value="docker">
+                            value="docker" checked>
                         <label class="form-check-label" for="docker-radio">Docker containers</label>
                         <small id="dockerHelp" class="form-text text-muted"></small>
                             <i id="dockerHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
@@ -243,6 +243,11 @@
                             <i id="architectureHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
                         </small>
                     </div>
+                    <h5 class="step-title">Number of rounds</h5>
+                    <div class="form-check form-check-inline">
+                        <input type="number" class="form-control" id="rounds" placeholder="Number of rounds" value="10"
+                            style="display: inline; width: 20%">
+                    </div>
                 </div>
                 <div id="networkTopologyForm" class="form-group row container-shadow tiny grey">
                     <h5 class="step-number">Network Topology <i class="fa fa-sitemap"></i>
@@ -254,7 +259,7 @@
                     <h5 class="step-title">Topology generation</h5>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="inlineNetworkTopology"
-                            id="custom-topology-btn" checked>
+                            id="custom-topology-btn">
                         <label class="form-check-label" for="custom-topology-btn">Custom topology</label>
                         <small id="topologyCustomHelp" class="form-text text-muted">
                             <i id="topologyCustomIcon" class="fa fa-info-circle"></i>
@@ -262,13 +267,13 @@
                     </div>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="inlineNetworkTopology"
-                            id="predefined-topology-btn">
+                            id="predefined-topology-btn" checked>
                         <label class="form-check-label" for="predefined-topology-btn">Predefined topology</label>
                         <small id="topologyPredefinedHelp" class="form-text text-muted">
                             <i id="topologyPredefinedIcon" class="fa fa-info-circle"></i>
                         </small>
                     </div>
-                    <div id="predefined-topology" style="display: none">
+                    <div id="predefined-topology">
                         <select class="form-control" id="predefined-topology-select" name="predefined-topology"
                             style="display: inline; width: 40%">
                             <option selected>Fully</option>
@@ -278,7 +283,6 @@
                         </select>
                         <input type="number" class="form-control" id="predefined-topology-nodes"
                             placeholder="Number of nodes" min="1" value="3" oninput="greaterthan0(this)" style="display: inline; width: 40%">
-                        <i id="networkTopologyRandom" class="fa fa-refresh"></i>
                     </div>
                 </div>
                 <div class="form-group row container-shadow tiny grey">
@@ -408,39 +412,33 @@
                 </div>
                 <button id="next-btn" type="button" class="btn btn-dark" style="margin-top: 10px; display: none;">&gt;
                 </button>
-                <button id="new-btn" type="button" class="btn btn-dark" style="margin-top: 10px; display: none;">
+                <button id="add-btn" title="New Scenario" type="button" class="btn btn-dark" style="margin-top: 10px;">
                     <i class="fa fa-plus" aria-hidden="true"></i>
-                </button>
-                <button id="add-btn" type="button" class="btn btn-dark" style="margin-top: 10px;">
-                    <i class="fa fa-floppy-o" aria-hidden="true"></i>
                 </button>
                 <button id="del-btn" type="button" class="btn btn-dark" style="margin-top: 10px; background-color: red; border-color: red; display: none;">
                     <i class="fa fa-trash" aria-hidden="true"></i>
                 </button>
-                <button id="run-btn" type="button" class="btn btn-dark"
-                    style="margin-top: 10px; margin-left: 15px; float: right" disabled="true">Run
-                    NEBULA
+                <button id="run-btn" type="button" class="btn btn-dark" style="margin-top: 10px; margin-left: 15px; float: right">
+                    Run NEBULA
                 </button>
-                <button id="load-config-btn" type="button" class="btn btn-dark"
-                    style="margin-top: 10px; margin-left: 5px; float: right">Load</button>
-                <button id="save-config-btn" type="button" class="btn btn-dark"
-                    style="margin-top: 10px; margin-left: 5px; float: right">Save</button>
-                <button id="open-gen-modal-btn" type="button" class="btn btn-dark"
-                    style="margin-top: 10px; margin-left: 5px; float: right;"><i class="fa fa-list-ul" aria-hidden="true"></i></button>
+                <button id="load-config-btn" title="Upload Scenario" type="button" class="btn btn-dark" style="margin-top: 10px; margin-left: 5px; float: right">
+                    <i class="fa fa-upload" aria-hidden="true"></i>
+                </button>
+                <button id="save-config-btn" title="Download Scenario" type="button" class="btn btn-dark" style="margin-top: 10px; margin-left: 5px; float: right">
+                    <i class="fa fa-download" aria-hidden="true"></i>
+                </button>
+                <button id="open-gen-modal-btn" title="Scenario generation" type="button" class="btn btn-dark" style="margin-top: 10px; margin-left: 5px; float: right;">
+                    <i class="fa fa-list-ul" aria-hidden="true"></i>
+                </button>
             </div>
             <div id="expert-container" class="col-md-12 " style="display: none">
                 <div class="form-group row container-shadow tiny grey">
                     <h5 class="step-number">Participants <i class="fa fa-users"></i>
-                        <input type="checkbox" id="participants-lock" onchange="lock('rounds', 'loggingLevel', checked)" style="display: none;">
+                        <input type="checkbox" id="participants-lock" onchange="lock('rounds', 'loggingLevel', 'reportingSwitch', checked)" style="display: none;">
                         <label for="participants-lock" class="icon-container" style="float: right;">
                             <i class="fa fa-lock"></i>
                         </label>
                     </h5>
-                    <h5 class="step-title">Number of rounds</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="number" class="form-control" id="rounds" placeholder="Number of rounds" value="10"
-                            style="display: inline; width: 20%">
-                    </div>
                     <h5 class="step-title">Logging</h5>
                     <div class="form-check form-check-inline">
                         <select class="form-control" id="loggingLevel" name="logginglevel"
@@ -449,29 +447,12 @@
                             <option value="true" selected>Alerts and logs</option>
                         </select>
                     </div>
+                    <h5 class="step-title">Reporting</h5>
+                    <div class="form-check form-switch" style="margin-left: 23px;">
+                        <input class="form-check-input" type="checkbox" id="reportingSwitch" checked="true" style="display: inline; width: 80px; height: 30px;">
+                    </div>
                     <h5 class="step-title">Individual participants</h5>
                     <div id="participant-items" class="row"></div>
-                </div>
-                <!-- Advanced Deployment -->
-                <div class="form-group row container-shadow tiny grey">
-                    <h5 class="step-number">Advanced Deployment <i class="fa fa-cloud-upload"></i>
-                        <input type="checkbox" id="accelerator-lock" onchange="lock('resourceUsage', checked)" style="display: none;">
-                        <label for="accelerator-lock" class="icon-container" style="float: right;">
-                            <i class="fa fa-lock"></i>
-                        </label>
-                    </h5>
-                    <h5 class="step-title">Accelerator definition</h5>
-                    <div class="form-check">
-                        <select class="form-control" id="resourceUsage" name="resources"
-                            style="display: inline; width: 20%">
-                            {% if gpu_available %}
-                            <option value="gpu" selected>GPU</option>
-                            <option value="cpu">CPU</option>
-                            {% else %}
-                            <option value="cpu" selected>CPU</option>
-                            {% endif %}
-                        </select>
-                    </div>
                 </div>
                 <!-- Advanced Topology -->
                 <div class="form-group row container-shadow tiny grey">
@@ -487,25 +468,6 @@
                             style="width: 30%; display: inline">
                         <input type="number" class="form-control" id="distanceValue" min="0" max="1000" value="50"
                             style="display:inline; width: 20%">
-                    </div>
-                </div>
-                <!-- Advanced Communications -->
-                <div class="form-group row container-shadow tiny grey">
-                    <h5 class="step-number">Advanced Communications <i class="fa fa-wifi"></i>
-                        <input type="checkbox" id="comms-lock" onchange="lock('network-subnet', 'network-gateway', checked)" style="display: none;">
-                        <label for="comms-lock" class="icon-container" style="float: right;">
-                            <i class="fa fa-lock"></i>
-                        </label>
-                    </h5>
-                    <h5 class="step-title">Network address</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="text" class="form-control" id="network-subnet" style="width: 80%"
-                            value="192.168.50.0/24">
-                    </div>
-                    <h5 class="step-title">Network gateway</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="text" class="form-control" id="network-gateway" style="width: 80%"
-                            value="192.168.50.1">
                     </div>
                 </div>
                 <!-- Advanced Training -->
@@ -543,23 +505,31 @@
                             <option>SwappingWeightsAttack</option>
                             <option>DelayerAttack</option>
                         </select>
-                    </div>
-                    <h5 class="step-title">% malicious nodes</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="number" class="form-control" id="poisoned-node-percent"
-                            placeholder="% malicious nodes" min="0" value="0" style="display: inline; width: 80%">
-                    </div>
-                    <h5 class="step-title">% samples poisoned by each malicious node</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="number" class="form-control" id="poisoned-sample-percent"
-                            placeholder="% samples poisoned in each malicious node" min="0" value="0"
-                            style="display: inline; width: 80%">
-                    </div>
-                    <h5 class="step-title">% poisoned noise</h5>
-                    <div class="form-check form-check-inline">
-                        <input type="number" class="form-control" id="poisoned-noise-percent"
-                            placeholder="% noise in each poisoned sample" min="0" value="0"
-                            style="display: inline; width: 80%">
+                        <h5 id="poisoned-node-title" class="step-title" style="margin-left: 11px; display: none;">% malicious nodes</h5>
+                        <div class="form-check form-check-inline" style="display: none;" id="poisoned-node-percent-container">
+                            <input type="number" class="form-control" id="poisoned-node-percent"
+                                placeholder="% malicious nodes" min="0" value="0" style="display: inline; width: 80%">
+                                <select class="form-control" id="malicious-nodes-select" name="malicious-nodes-select"
+                                style="display: inline; width: 10%">
+                                <option selected>Percentage</option>
+                                <option>Manual</option>
+                            </select>
+                            <small id="maliciousHelp" class="form-text text-muted">
+                                <i id="maliciousHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                            </small>
+                        </div>
+                        <h5 class="step-title" id="poisoned-sample-title" style="display: none;">% samples poisoned by each malicious node</h5>
+                        <div class="form-check form-check-inline" id="poisoned-sample-percent-container" style="display: none;">
+                            <input type="number" class="form-control" id="poisoned-sample-percent"
+                                placeholder="% samples poisoned in each malicious node" min="0" value="0"
+                                style="display: inline; width: 80%">
+                        </div>
+                        <h5 id="poisoned-noise-title" class="step-title" style="display: none;">% poisoned noise</h5>
+                        <div class="form-check form-check-inline" id="poisoned-noise-percent-container" style="display: none;">
+                            <input type="number" class="form-control" id="poisoned-noise-percent"
+                                placeholder="% noise in each poisoned sample" min="0" value="0"
+                                style="display: inline; width: 80%">
+                        </div>
                     </div>
                 </div>
                 <!-- Advanced Defense -->
@@ -762,6 +732,35 @@
             content: "\f09c";
         }
 
+        /* Tooltips */
+        button[title] {
+            position: relative;
+        }
+
+        button[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, top 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        button[title]:hover::after {
+            opacity: 1;
+            top: -50px;
+        }
+
         #expert-container .step-number::before {
             background-color: #3333338a;
             color: #fff;
@@ -870,13 +869,6 @@
 
         .popover {
             max-width: 800px;
-        }
-
-        #networkTopologyRandom {
-            margin-left: 5px;
-            margin-right: 5px;
-            font-size: 15px;
-            cursor: pointer;
         }
 
         .overlay {
@@ -1160,24 +1152,25 @@
             // Step 8
             data["rounds"] = document.getElementById("rounds").value
             data["logginglevel"] = document.getElementById("loggingLevel").value === "true"
+            data["report_status_data_queue"] = document.getElementById("reportingSwitch").checked
             // Step 9
-            data["accelerator"] = document.getElementById("resourceUsage").value
-            // Step 10-11
-            data["network_subnet"] = document.getElementById("network-subnet").value
-            data["network_gateway"] = document.getElementById("network-gateway").value
-            // Step 12
+            data["accelerator"] = ""
+            // Step 10
+            data["network_subnet"] = "192.168.50.0/24"
+            data["network_gateway"] = "192.168.50.1"
+            // Step 11
             data["epochs"] = document.getElementById("epochs").value
-            // Step 13
+            // Step 12
             data["attacks"] = document.getElementById("poisoning-attack-select").value
             data["poisoned_node_percent"] = document.getElementById("poisoned-node-percent").value
             data["poisoned_sample_percent"] = document.getElementById("poisoned-sample-percent").value
             data["poisoned_noise_percent"] = document.getElementById("poisoned-noise-percent").value
-            // Step 14
+            // Step 13
             data["with_reputation"] = document.getElementById("with-reputation-btn").checked ? true : false
             data["is_dynamic_topology"] = document.getElementById("dynamic-topology-btn").checked ? true : false
             data["is_dynamic_aggregation"] = document.getElementById("dynamic-aggregation-btn").checked ? true : false
             data["target_aggregation"] = document.getElementById("dynamic-aggregation-btn").checked ? document.getElementById("targetAggregationSelect").value : false
-            // Step 15
+            // Step 14
             data["random_geo"] = document.getElementById("random-geo-btn").checked ? true : false
             data["latitude"] = parseFloat(document.getElementById("latitude").value)
             data["longitude"] = parseFloat(document.getElementById("longitude").value)
@@ -1256,19 +1249,33 @@
                 // Step 8
                 document.getElementById("rounds").value = data["rounds"];
                 document.getElementById("loggingLevel").value = data["logginglevel"] ? "true" : "false";
-                // Step 9
-                document.getElementById("resourceUsage").value = data["accelerator"];
-                // Step 10-11
-                document.getElementById("network-subnet").value = data["network_subnet"];
-                document.getElementById("network-gateway").value = data["network_gateway"];
-                // Step 12
+                document.getElementById("reportingSwitch").checked = data["report_status_data_queue"] ? true : false;
+                if (data["n_nodes"] > 10) {
+                    document.getElementById("reportingSwitch").disabled = true;
+                } else {
+                    document.getElementById("reportingSwitch").disabled = false;
+                }
+                // Step 10
                 document.getElementById("epochs").value = data["epochs"];
-                // Step 13
-                document.getElementById("poisoning-attack-select").value = data["attacks"];
-                document.getElementById("poisoned-node-percent").value = data["poisoned_node_percent"];
+                // Step 11
+                var selectElement = document.getElementById("poisoning-attack-select");
+                selectElement.value = data["attacks"];
+                selectElement.dispatchEvent(new Event('change'));
+                if (data["poisoned_node_percent"] == 0)
+                {
+                    var selectElement = document.getElementById("malicious-nodes-select");
+                    selectElement.value = "Manual";
+                    selectElement.dispatchEvent(new Event('change'));
+                }
+                else{
+                    document.getElementById("poisoned-node-percent").value = data["poisoned_node_percent"];
+                    var selectElement = document.getElementById("malicious-nodes-select");
+                    selectElement.value = "Percentage";
+                    selectElement.dispatchEvent(new Event('change'));
+                }
                 document.getElementById("poisoned-sample-percent").value = data["poisoned_sample_percent"];
                 document.getElementById("poisoned-noise-percent").value = data["poisoned_noise_percent"];
-                // Step 14
+                // Step 12
                 document.getElementById("with-reputation-btn").checked = data["with_reputation"];
                 if (data["with_reputation"]) {
                     document.getElementById("mtd-strategy").style.display = "block";
@@ -1276,7 +1283,7 @@
                 document.getElementById("dynamic-topology-btn").checked = data["is_dynamic_topology"];
                 document.getElementById("dynamic-aggregation-btn").checked = data["is_dynamic_aggregation"];
                 document.getElementById("targetAggregationSelect").value = data["target_aggregation"];
-                // Step 15
+                // Step 13
                 document.getElementById("random-geo-btn").checked = data["random_geo"];
                 document.getElementById("latitude").value = data["latitude"];
                 document.getElementById("longitude").value = data["longitude"];
@@ -1349,17 +1356,21 @@
 
 
                         //Show buttons to move through the list
-                        if (scenarioStorage.scenariosList.length > 1){
-                            document.getElementById("prev-btn").style.display = "inline-block";
-                            document.getElementById("run-btn").disabled = false;
-                            document.getElementById("del-btn").style.display = "inline-block";
-                        }else{
+                        if (scenarioStorage.scenariosList.length < 1) {
                             document.getElementById("prev-btn").style.display = "none";
                             document.getElementById("run-btn").disabled = true;
                         }
+                        else if (scenarioStorage.scenariosList.length > 1){
+                            document.getElementById("prev-btn").style.display = "inline-block";
+                            document.getElementById("run-btn").disabled = false;
+                            document.getElementById("del-btn").style.display = "inline-block";
+                        } else {
+                            document.getElementById("prev-btn").style.display = "none";
+                            document.getElementById("run-btn").disabled = false;
+                            document.getElementById("del-btn").style.display = "inline-block";
+                        }
 
-                        document.getElementById("new-btn").style.display = "inline-block";
-                        document.getElementById("add-btn").style.display = "none";
+                        document.getElementById("add-btn").style.display = "inline-block";
                         updateScenariosPosition();
                         showAlert('info', 'Configuration file loaded successfully');
                     } catch (error) {
@@ -1509,6 +1520,17 @@
         var popover = new bootstrap.Popover(popoverTriggerEl, {
             title: "Model",
             content: contentModelHelp,
+            trigger: "hover",
+            placement: "right",
+            html: true,
+            container: "body",
+            delay: { show: 500, hide: 100 },
+        });
+
+        var popoverTriggerEl = document.getElementById("maliciousHelpIcon");
+        var popover = new bootstrap.Popover(popoverTriggerEl, {
+            title: "Malicious nodes",
+            content: contentMaliciousHelp,
             trigger: "hover",
             placement: "right",
             html: true,
@@ -1709,6 +1731,13 @@
             var scenariosList = [];
             var actual_scenario = 0;
 
+            //Replace a scenario by index
+            function setScenario(index, newScenario) {
+                if (index >= 0 && index < scenariosList.length) {
+                    scenariosList[index] = newScenario;
+                }
+            }
+
             //Save current scenario
             function saveScenario(){
                 //Save scenario data
@@ -1764,7 +1793,7 @@
                 document.getElementById("predefined-topology-btn").checked = false;
                 document.getElementById("predefined-topology-select").value = "Fully";
                 document.getElementById("predefined-topology-nodes").value = 3;
-                document.getElementById("networkTopologyRandom").click();
+                updateNodes();
                 document.getElementById("custom-topology-btn").click();
             }
             // Step 5
@@ -1788,31 +1817,24 @@
                 document.getElementById("loggingLevel").value = false;
             }
             // Step 9
-            if(!document.getElementById("accelerator-lock").checked){
-                document.getElementById("resourceUsage").value = "cpu";
-            }
-            // Step 10
             if(!document.getElementById("distance-lock").checked){
                 document.getElementById("distanceInput").value = document.getElementById("distanceInput").defaultValue;
                 document.getElementById("distanceValue").value = document.getElementById("distanceValue").defaultValue;
             }
-            // Step 11
-            if(!document.getElementById("comms-lock").checked){
-                document.getElementById("network-subnet").value = document.getElementById("network-subnet").defaultValue;
-                document.getElementById("network-gateway").value = document.getElementById("network-gateway").defaultValue;
-            }
-            // Step 12
+            // Step 10
             if(!document.getElementById("epochs-lock").checked){
                 document.getElementById("epochs").value = document.getElementById("epochs").defaultValue;
             }
-            // Step 13
+            // Step 11
             if(!document.getElementById("robustness-lock").checked){
-                document.getElementById("poisoning-attack-select").value = "No Attack";
+                var selectElement = document.getElementById("poisoning-attack-select");
+                selectElement.value = "No Attack";
+                selectElement.dispatchEvent(new Event('change'));
                 document.getElementById("poisoned-sample-percent").value = document.getElementById("poisoned-sample-percent").defaultValue;
                 document.getElementById("poisoned-noise-percent").value = document.getElementById("poisoned-noise-percent").defaultValue;
                 document.getElementById("poisoned-node-percent").value = document.getElementById("poisoned-node-percent").defaultValue;
             }
-            // Step 14
+            // Step 12
             if(!document.getElementById("defense-lock").checked){
                 document.getElementById("without-reputation-btn").checked = true;
                 document.getElementById("dynamic-aggregation-btn").checked = false;
@@ -1821,7 +1843,7 @@
                 document.getElementById("without-reputation-btn").click();
                 document.getElementById("dynamic-topology-btn").checked = false;
             }
-            // Step 15
+            // Step 13
             if(!document.getElementById("mobility-lock").checked){
                 document.getElementById("random-geo-btn").checked = true;
                 document.getElementById("longitude").value =  document.getElementById("longitude").defaultValue;
@@ -1849,22 +1871,6 @@
             }
         }
 
-        //When click "new-btn" button, clear fields to define new Scenario
-        document.getElementById("new-btn").addEventListener("click", function(){
-            //Save actual scenario in the list
-            scenarioStorage.replaceScenario();
-
-            clearFields();
-            updateModelOptions();
-            updateScenariosPosition(true);
-
-            document.getElementById("new-btn").style.display = "none";
-            document.getElementById("prev-btn").style.display = "none";
-            document.getElementById("next-btn").style.display = "none";
-            document.getElementById("del-btn").style.display = "none";
-            document.getElementById("add-btn").style.display = "inline-block";
-        });
-
         //When click "add-btn" button, save actual scenario in the list of scenarios
         document.getElementById("add-btn").addEventListener("click", function(){
             scenarioStorage.saveScenario();
@@ -1877,7 +1883,6 @@
             var actual_scenario = scenarioStorage.scenariosList[scenarioStorage.actual_scenario];
             setScenarioData(actual_scenario);
 
-            document.getElementById("add-btn").style.display = "none";
             if(scenarioStorage.scenariosList.length == 1){
                 document.getElementById("prev-btn").style.display = "none";
                 document.getElementById("next-btn").style.display = "none";
@@ -1885,7 +1890,6 @@
             else{
                 document.getElementById("prev-btn").style.display = "inline-block";
             }
-            document.getElementById("new-btn").style.display = "inline-block";
             document.getElementById("del-btn").style.display = "inline-block";
 
             //Enable run
@@ -1910,7 +1914,6 @@
 
                 updateScenariosPosition(true);
                 document.getElementById("add-btn").style.display = "inline-block";
-                document.getElementById("new-btn").style.display = "none";
                 document.getElementById("del-btn").style.display = "none";
                 document.getElementById("run-btn").disabled = true;
             }
@@ -1919,7 +1922,7 @@
                 setScenarioData(scenarioStorage.scenariosList[0]);
 
                 updateScenariosPosition();
-                document.getElementById("new-btn").style.display = "inline-block";
+                document.getElementById("add-btn").style.display = "inline-block";
                 document.getElementById("next-btn").style.display = "none";
                 document.getElementById("prev-btn").style.display = "none";
             }
@@ -1931,7 +1934,7 @@
                 //Last scenario in the list is displayed
                 if(!(scenarioStorage.actual_scenario < scenarioStorage.scenariosList.length -1)){
                     document.getElementById("prev-btn").style.display = "inline-block";
-                    document.getElementById("new-btn").style.display = "inline-block";
+                    document.getElementById("add-btn").style.display = "inline-block";
                     document.getElementById("next-btn").style.display = "none";
                 }
             }
@@ -1949,7 +1952,7 @@
 
             if(scenarioStorage.actual_scenario == scenarioStorage.scenariosList.length - 1){
                 document.getElementById("next-btn").style.display = "none";
-                document.getElementById("new-btn").style.display = "inline-block";
+                document.getElementById("add-btn").style.display = "inline-block";
             }
             document.getElementById("prev-btn").style.display = "inline-block";
         });
@@ -1968,7 +1971,7 @@
             if(scenarioStorage.actual_scenario == 0){
                 document.getElementById("prev-btn").style.display = "none";
             }
-            document.getElementById("new-btn").style.display = "none";
+            document.getElementById("add-btn").style.display = "none";
             document.getElementById("next-btn").style.display = "inline-block";
         });
     </script>
@@ -2023,15 +2026,6 @@
 
         //Generate a scenario
         function generateScenarios(){
-
-            //selected accelerator
-            if(document.getElementById("mod-cpu").checked){
-                document.getElementById("resourceUsage").value = "cpu";
-            }
-            else{
-                document.getElementById("resourceUsage").value = "gpu";
-            }
-
             //One or more options selected in every case
             var aggregation_methods = ['mod-fedavg', 'mod-krum', 'mod-trimmed', 'mod-median'];
             if (!atLeastOneChecked(aggregation_methods)) {
@@ -2092,7 +2086,7 @@
                                 }
 
                                 document.getElementById("predefined-topology-nodes").value = nodes;
-                                document.getElementById("networkTopologyRandom").click();
+                                updateNodes();
 
                                 //Generate datasets
                                 //Selected dataset
@@ -2142,9 +2136,8 @@
                 document.getElementById("prev-btn").style.display = "inline-block";
             }
             document.getElementById("run-btn").disabled = false;
-            document.getElementById("new-btn").style.display = "inline-block";
+            document.getElementById("add-btn").style.display = "inline-block";
             document.getElementById("del-btn").style.display = "inline-block";
-            document.getElementById("add-btn").style.display = "none";
         }
 
         //Generate and save scenarios
@@ -2175,7 +2168,16 @@
 
                 document.getElementById("yes-button").addEventListener("click", function () {
 
+                    if(scenarioStorage.scenariosList < 1) {
+                        document.getElementById("scenario-title").value = "empty"
+                    }
+
                     scenarioStorage.replaceScenario();
+                    scenarioStorage.scenariosList.forEach((scenario, index) => {
+                        if (!scenario.scenario_title){
+                            scenarioStorage.scenariosList[index].scenario_title = "empty";
+                        }
+                    });
                     var data = scenarioStorage.scenariosList;
 
                     // Hide the modal
@@ -2198,7 +2200,7 @@
                             document.getElementById("spinner").style.display = "none";
                             // If the user is a demo, show a modal with a message
                             $('#confirm-modal').on('hidden.bs.modal', function () {
-                                $('#info-modal-body').html('You are not allowed to run a scenario. You have a limited functionality or a scenario is already running');
+                                $('#info-modal-body').html('You are not authorized to run a scenario. Your access is limited, or you may need to wait until more scenarios can be launched');
                                 $('#info-modal').modal('show');
                             });
                         }
@@ -2437,7 +2439,7 @@
             predefinedTopologyDiv.style.display = "block";
         });
 
-        document.getElementById("networkTopologyRandom").addEventListener("click", function () {
+        function updateNodes(){
             var n_nodes_predefined = document.getElementById("predefined-topology-nodes").value;
             n_nodes_predefined = parseInt(n_nodes_predefined);
 
@@ -2509,11 +2511,25 @@
                 }
             }
 
+            if (document.getElementById("predefined-topology-nodes").value > 10) {
+                document.getElementById("reportingSwitch").checked = false;
+                document.getElementById("reportingSwitch").disabled = true;
+            } else {
+                document.getElementById("reportingSwitch").checked = true;
+                document.getElementById("reportingSwitch").disabled = false;
+            }
+
             // Update the graph
             updateGraph();
+        }
 
+        document.getElementById("predefined-topology-nodes").addEventListener("change", function (){
+            updateNodes();
         });
 
+        document.getElementById("predefined-topology-select").addEventListener("change", function (){
+            updateNodes();
+        });
     </script>
 
     <script>
@@ -2525,8 +2541,7 @@
                 $('#predefined-topology-select').prop('disabled', true);
                 // Change value of the input "predefined-topology-nodes" to number of nodes
                 $('#predefined-topology-nodes').val(gData.nodes.length);
-                // Click on "networkTopologyRandom" to update the graph
-                $('#networkTopologyRandom').click();
+                updateNodes();
 
                 // Update gData: change the role of the central node to "server"
                 gData.nodes[0].role = "server";
@@ -2583,6 +2598,59 @@
         function setValue(newValue, htmlElement) {
             htmlElement.innerHTML = newValue;
         }
+    </script>
+
+    <script>
+        // Update attacks configuration
+
+        var manualMalicious = false
+
+        document.getElementById("malicious-nodes-select").addEventListener("change", function(){
+            if(this.value == "Manual"){
+                document.getElementById("poisoned-node-percent").value = 0;
+                document.getElementById("poisoned-node-percent").disabled = true;
+                manualMalicious = true;
+            }else{
+                document.getElementById("poisoned-node-percent").disabled = false;
+                manualMalicious = false;
+            }
+        });
+
+        document.getElementById("poisoning-attack-select").addEventListener("change", function (){
+            if(this.value == "No Attack"){
+                document.getElementById("poisoned-node-title").style.display = "none";
+                document.getElementById("poisoned-node-percent-container").style.display = "none";
+                document.getElementById("poisoned-sample-title").style.display = "none";
+                document.getElementById("poisoned-sample-percent-container").style.display = "none";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+            }
+            else if(this.value == "Label Flipping"){
+                document.getElementById("poisoned-node-title").style.display = "block";
+                document.getElementById("poisoned-node-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-percent").value = 0;
+                document.getElementById("poisoned-sample-title").style.display = "block";
+                document.getElementById("poisoned-sample-percent-container").style.display = "block";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+            }
+            else if(this.value == "GLLNeuronInversionAttack" || this.value == "NoiseInjectionAttack" || this.value == "SwappingWeightsAttack" || this.value == "DelayerAttack"){
+                document.getElementById("poisoned-node-title").style.display = "block";
+                document.getElementById("poisoned-node-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-title").style.display = "none";
+                document.getElementById("poisoned-sample-percent-container").style.display = "none";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+            }
+            else{
+                document.getElementById("poisoned-node-title").style.display = "block";
+                document.getElementById("poisoned-node-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-title").style.display = "block";
+                document.getElementById("poisoned-sample-percent-container").style.display = "block";
+                document.getElementById("poisoned-noise-title").style.display = "block";
+                document.getElementById("poisoned-noise-percent-container").style.display = "block";
+            }
+        });
     </script>
 
     <script>
@@ -2737,14 +2805,6 @@
     </script>
 
     <script>
-        // Detect if input network-subnet is changed, if it is changed, update the graph
-        document.getElementById("network-subnet").addEventListener("change", function () {
-            // Update the graph
-            updateGraph();
-        });
-    </script>
-
-    <script>
         // Create the graph object
 
         function updateGraph() {
@@ -2791,7 +2851,7 @@
 
             // All nodes have to have the IP from the input docker-options-network-address. Each node have the IP plus 1, starting from the IP in the input plus 1
             var nodes = gData.nodes;
-            var ip = document.getElementById("network-subnet").value;
+            var ip = "192.168.50.0/24"
             var ip_split = ip.split("/");
             ip_split = ip_split[0].split(".");
             var ip_last = parseInt(ip_split[3]);
@@ -3052,12 +3112,21 @@
                 const changeMalicious = document.createElement("a");
                 changeMalicious.innerHTML = "<i class=\"fa fa-exclamation-triangle\" aria-hidden=\"true\"></i> Change malicious";
                 changeMalicious.style.display = "block";
-                changeMalicious.style.cursor = "pointer";
+                if(!manualMalicious){
+                    changeMalicious.style.opacity = "0.5";
+                    changeMalicious.style.cursor = "not-allowed";
+                }
+                else{
+                    changeMalicious.style.cursor = "pointer";
+                }
                 changeMalicious.style.padding = "5px";
                 changeMalicious.style.borderRadius = "5px";
                 changeMalicious.style.marginBottom = "5px";
                 changeMalicious.classList.add("dropdown-item");
                 changeMalicious.addEventListener("click", function () {
+                    if(!manualMalicious){
+                        return;
+                    }
                     console.log("Change malicious");
                     node.malicious = !node.malicious;
                     updateGraph();

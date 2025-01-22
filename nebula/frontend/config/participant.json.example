@@ -22,6 +22,7 @@
     "malicious": false,
     "start": false,
     "accelerator": "cpu",
+    "gpu_id" : null,
     "devices": 2,
     "strategy": "ddp",
     "logging": false
@@ -70,7 +71,7 @@
       "round_start": 0,
       "scheme": "random"
     }
-  },  
+  },
   "data_args": {
     "dataset": "MNIST",
     "iid": false,
@@ -102,7 +103,7 @@
     "poisoned_ratio": 0,
     "target_label": 0,
     "noise_type": "salt",
-    "target_changed_label": 0    
+    "target_changed_label": 0
   },
   "tracking_args": {
     "enable_remote_tracking": false,
@@ -117,12 +118,13 @@
     "device_type": ""
   },
   "message_args": {
-    "max_local_messages": 100,
+    "max_local_messages": 10000,
     "compression": "zlib"
   },
   "reporter_args": {
     "grace_time_reporter": 10,
-    "report_frequency": 5
+    "report_frequency": 5,
+    "report_status_data_queue": true
   },
   "discoverer_args": {
     "grace_time_discovery": 0,
@@ -148,7 +150,7 @@
     "history_size": 20
   },
   "misc_args": {
-    "grace_time_connection": 20,
-    "grace_time_start_federation": 20
-  } 
+    "grace_time_connection": 10,
+    "grace_time_start_federation": 10
+  }
 }

@@ -1,12 +1,11 @@
 import os
+import random
 import sys
 import time
-import random
 import warnings
+
 import numpy as np
 import torch
-
-
 
 torch.multiprocessing.set_start_method("spawn", force=True)
 
@@ -16,60 +15,77 @@ from cryptography.utils import CryptographyDeprecationWarning
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from nebula.config.config import Config
 import logging
-from nebula.core.datasets.mnist.mnist import MNISTDataset
-from nebula.core.datasets.fashionmnist.fashionmnist import FashionMNISTDataset
-from nebula.core.datasets.syscall.syscall import SYSCALLDataset
+
+from nebula.config.config import Config
 from nebula.core.datasets.cifar10.cifar10 import CIFAR10Dataset
-from nebula.core.datasets.militarysar.militarysar import MilitarySARDataset
-from nebula.core.datasets.datamodule import DataModule
-
-from nebula.core.training.lightning import Lightning
-from nebula.core.training.siamese import Siamese
-from nebula.core.models.cifar10.dualagg import DualAggModel
-from nebula.core.models.mnist.mlp import MNISTModelMLP
-from nebula.core.models.mnist.cnn import MNISTModelCNN
-from nebula.core.models.cifar10.cnnV3 import CIFAR10ModelCNN_V3
-from nebula.core.models.fashionmnist.mlp import FashionMNISTModelMLP
-from nebula.core.models.fashionmnist.cnn import FashionMNISTModelCNN
-from nebula.core.models.syscall.mlp import SyscallModelMLP
-from nebula.core.models.syscall.autoencoder import SyscallModelAutoencoder
-from nebula.core.models.militarysar.cnn import MilitarySARModelCNN
 from nebula.core.datasets.cifar100.cifar100 import CIFAR100Dataset
-
+from nebula.core.datasets.datamodule import DataModule
+from nebula.core.datasets.emnist.emnist import EMNISTDataset
+from nebula.core.datasets.fashionmnist.fashionmnist import FashionMNISTDataset
+from nebula.core.datasets.kitsun.kitsun import KITSUNDataset
+from nebula.core.datasets.militarysar.militarysar import MilitarySARDataset
+from nebula.core.datasets.mnist.mnist import MNISTDataset
+from nebula.core.datasets.syscall.syscall import SYSCALLDataset
+from nebula.core.engine import AggregatorNode, IdleNode, MaliciousNode, ServerNode, TrainerNode
+from nebula.core.models.cifar10.cnnV3 import CIFAR10ModelCNN_V3
+from nebula.core.models.cifar10.dualagg import DualAggModel
+from nebula.core.models.cifar100.cnn import CIFAR100ModelCNN
+from nebula.core.models.emnist.cnn import EMNISTModelCNN
+from nebula.core.models.emnist.mlp import EMNISTModelMLP
+from nebula.core.models.fashionmnist.cnn import FashionMNISTModelCNN
+from nebula.core.models.fashionmnist.mlp import FashionMNISTModelMLP
+from nebula.core.models.kitsun.mlp import KitsunModelMLP
+from nebula.core.models.militarysar.cnn import MilitarySARModelCNN
+from nebula.core.models.mnist.cnn import MNISTModelCNN
+from nebula.core.models.mnist.mlp import MNISTModelMLP
+from nebula.core.models.syscall.autoencoder import SyscallModelAutoencoder
+from nebula.core.models.syscall.mlp import SyscallModelMLP
 from nebula.core.models.syscall.svm import SyscallModelSGDOneClassSVM
-from nebula.core.engine import MaliciousNode, AggregatorNode, TrainerNode, ServerNode, IdleNode
-from nebula.core.role import Role
 from nebula.core.optimizations.communications.KD.models.cifar10.StudentCNN import StudentCIFAR10ModelCNN
 from nebula.core.optimizations.communications.KD.models.cifar10.StudentResnet8 import StudentCIFAR10ModelResNet8
-from nebula.core.optimizations.communications.KD_prototypes.models.cifar10.ProtoStudentCNN import ProtoStudentCIFAR10ModelCNN
-from nebula.core.optimizations.communications.KD_prototypes.models.cifar10.ProtoStudentResnet8 import ProtoStudentCIFAR10ModelResnet8
+from nebula.core.optimizations.communications.KD.models.cifar100.StudentResnet18 import StudentCIFAR100ModelResNet18
 from nebula.core.optimizations.communications.KD.models.fashionmnist.StudentCNN import StudentFashionMNISTModelCNN
-from nebula.core.optimizations.communications.KD_prototypes.models.fashionmnist.ProtoStudentCNN import ProtoStudentFashionMNISTModelCNN
-from nebula.core.optimizations.communications.KD.training.kdlightning import KDLightning
-from nebula.core.optimizations.communications.KD_prototypes.training.protokdquantizationlightning import ProtoKDQuantizationLightning
 from nebula.core.optimizations.communications.KD.models.mnist.StudentCNN import StudentMNISTModelCNN
-from nebula.core.optimizations.communications.KD_prototypes.models.mnist.ProtoStudentCNN import ProtoStudentMNISTModelCNN
+from nebula.core.optimizations.communications.KD.training.kdlightning import KDLightning
+from nebula.core.optimizations.communications.KD_prototypes.models.cifar10.ProtoStudentCNN import (
+    ProtoStudentCIFAR10ModelCNN,
+)
+from nebula.core.optimizations.communications.KD_prototypes.models.cifar10.ProtoStudentResnet8 import (
+    ProtoStudentCIFAR10ModelResnet8,
+)
+from nebula.core.optimizations.communications.KD_prototypes.models.cifar100.ProtoStudentResnet18 import (
+    ProtoStudentCIFAR100ModelResnet18,
+)
+from nebula.core.optimizations.communications.KD_prototypes.models.fashionmnist.ProtoStudentCNN import (
+    ProtoStudentFashionMNISTModelCNN,
+)
+from nebula.core.optimizations.communications.KD_prototypes.models.mnist.ProtoStudentCNN import (
+    ProtoStudentMNISTModelCNN,
+)
+from nebula.core.optimizations.communications.KD_prototypes.training.protokdquantizationlightning import (
+    ProtoKDQuantizationLightning,
+)
 from nebula.core.research.FedGPD.models.cifar10.FedGPDCNN import FedGPDCIFAR10ModelCNN
+from nebula.core.research.FedGPD.models.cifar10.FedGPDResnet8 import FedGPDCIFAR10ModelResNet8
+from nebula.core.research.FedGPD.models.cifar100.FedGPDResnet18 import FedGPDCIFAR100ModelResNet18
 from nebula.core.research.FedGPD.models.fashionmnist.FedGPDCNN import FedGPDFashionMNISTModelCNN
 from nebula.core.research.FedGPD.models.mnist.FedGPDCNN import FedGPDMNISTModelCNN
 from nebula.core.research.FedProto.models.cifar10.FedProtoCNN import FedProtoCIFAR10ModelCNN
 from nebula.core.research.FedProto.models.cifar10.FedProtoResnet8 import FedProtoCIFAR10ModelResNet8
+from nebula.core.research.FedProto.models.cifar100.FedProtoResnet18 import FedProtoCIFAR100ModelResNet18
 from nebula.core.research.FedProto.models.fashionmnist.FedProtoCNN import FedProtoFashionMNISTModelCNN
 from nebula.core.research.FedProto.models.mnist.FedProtoCNN import FedProtoMNISTModelCNN
 from nebula.core.research.FedProto.training.protolightning import ProtoLightning
-from nebula.core.research.FML.models.mnist.FMLCombinedModel import FMLMNISTCombinedModelCNN
 from nebula.core.research.FML.models.cifar10.FMLCombinedCNN import FMLCIFAR10CombinedModelCNN
 from nebula.core.research.FML.models.cifar10.FMLCombinedResnet8 import FMLCIFAR10CombinedModelResNet8
 from nebula.core.research.FML.models.cifar100.FMLCombinedResnet18 import FMLCIFAR100CombinedModelResNet18
 from nebula.core.research.FML.models.fashionmnist.FMLCombinedModel import FMLFashionMNISTCombinedModelCNN
+from nebula.core.research.FML.models.mnist.FMLCombinedModel import FMLMNISTCombinedModelCNN
 from nebula.core.research.FML.training.FMLlightning import FMLLightning
-from nebula.core.optimizations.communications.KD.models.cifar100.StudentResnet18 import StudentCIFAR100ModelResNet18
-from nebula.core.optimizations.communications.KD_prototypes.models.cifar100.ProtoStudentResnet18 import ProtoStudentCIFAR100ModelResnet18
-from nebula.core.research.FedGPD.models.cifar10.FedGPDResnet8 import FedGPDCIFAR10ModelResNet8
-from nebula.core.research.FedGPD.models.cifar100.FedGPDResnet18 import FedGPDCIFAR100ModelResNet18
-from nebula.core.research.FedProto.models.cifar100.FedProtoResnet18 import FedProtoCIFAR100ModelResNet18
+from nebula.core.role import Role
+from nebula.core.training.lightning import Lightning
+from nebula.core.training.siamese import Siamese
 
 # os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 # os.environ["TORCH_LOGS"] = "+dynamo"
@@ -85,7 +101,7 @@ async def main(config):
     additional_node_round = config.participant["mobility_args"]["additional_node"]["round_start"]
 
     attacks = config.participant["adversarial_args"]["attacks"]
-    poisoned_persent = config.participant["adversarial_args"]["poisoned_sample_percent"]
+    poisoned_percent = config.participant["adversarial_args"]["poisoned_sample_percent"]
     poisoned_ratio = config.participant["adversarial_args"]["poisoned_ratio"]
     targeted = str(config.participant["adversarial_args"]["targeted"])
     target_label = config.participant["adversarial_args"]["target_label"]
@@ -116,7 +132,7 @@ async def main(config):
         label_flipping = False
         data_poisoning = False
         targeted = False
-        poisoned_persent = 0
+        poisoned_percent = 0
         poisoned_ratio = 0
 
     # Adjust the total number of nodes and the index of the current node for CFL, as it doesn't require a specific partition for the server (not used for training)
@@ -190,10 +206,14 @@ async def main(config):
             model = ProtoStudentMNISTModelCNN(knowledge_distilation="KD", weighting="adaptative")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-DS":
-            model = ProtoStudentMNISTModelCNN(knowledge_distilation="KD", send_logic="mixed_2rounds", weighting="decreasing")
+            model = ProtoStudentMNISTModelCNN(
+                knowledge_distilation="KD", send_logic="mixed_2rounds", weighting="decreasing"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-AS":
-            model = ProtoStudentMNISTModelCNN(knowledge_distilation="KD", send_logic="mixed_2rounds", weighting="adaptative")
+            model = ProtoStudentMNISTModelCNN(
+                knowledge_distilation="KD", send_logic="mixed_2rounds", weighting="adaptative"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD":
             model = ProtoStudentMNISTModelCNN(knowledge_distilation="MD")
@@ -208,10 +228,14 @@ async def main(config):
             model = ProtoStudentMNISTModelCNN(knowledge_distilation="MD", weighting="adaptative")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-DS":
-            model = ProtoStudentMNISTModelCNN(knowledge_distilation="MD", send_logic="mixed_2rounds", weighting="decreasing")
+            model = ProtoStudentMNISTModelCNN(
+                knowledge_distilation="MD", send_logic="mixed_2rounds", weighting="decreasing"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-AS":
-            model = ProtoStudentMNISTModelCNN(knowledge_distilation="MD", send_logic="mixed_2rounds", weighting="adaptative")
+            model = ProtoStudentMNISTModelCNN(
+                knowledge_distilation="MD", send_logic="mixed_2rounds", weighting="adaptative"
+            )
             learner = ProtoKDQuantizationLightning
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
@@ -252,7 +276,9 @@ async def main(config):
             model = StudentFashionMNISTModelCNN(mutual_distilation="MD", send_logic="mixed_2rounds")
             learner = KDLightning
         elif model_name == "CNN MD-DS":
-            model = StudentFashionMNISTModelCNN(mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds")
+            model = StudentFashionMNISTModelCNN(
+                mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds"
+            )
             learner = KDLightning
         elif model_name == "CNN FedProto":
             model = FedProtoFashionMNISTModelCNN()
@@ -275,10 +301,14 @@ async def main(config):
             model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="KD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-DS":
-            model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentFashionMNISTModelCNN(
+                knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-AS":
-            model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentFashionMNISTModelCNN(
+                knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD":
             model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="MD")
@@ -293,11 +323,32 @@ async def main(config):
             model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="MD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-DS":
-            model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentFashionMNISTModelCNN(
+                knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-AS":
-            model = ProtoStudentFashionMNISTModelCNN(knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentFashionMNISTModelCNN(
+                knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
+        else:
+            raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
+    elif dataset_str == "EMNIST":
+        dataset = EMNISTDataset(
+            num_classes=10,
+            partition_id=idx,
+            partitions_number=n_nodes,
+            iid=iid,
+            partition=partition_selection,
+            partition_parameter=partition_parameter,
+            seed=42,
+            config=config,
+        )
+        if model_name == "MLP":
+            model = EMNISTModelMLP()
+        elif model_name == "CNN":
+            model = EMNISTModelCNN()
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "SYSCALL":
@@ -377,10 +428,14 @@ async def main(config):
             model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="KD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-DS":
-            model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelCNN(
+                knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PKD-AS":
-            model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelCNN(
+                knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD":
             model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="MD")
@@ -395,10 +450,14 @@ async def main(config):
             model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="MD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-DS":
-            model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelCNN(
+                knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "CNN PMD-AS":
-            model = ProtoStudentCIFAR10ModelCNN(knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelCNN(
+                knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8":
             model = StudentCIFAR10ModelResNet8(mutual_distilation=None)
@@ -425,7 +484,9 @@ async def main(config):
             model = StudentCIFAR10ModelResNet8(mutual_distilation="MD", send_logic="mixed_2rounds")
             learner = KDLightning
         elif model_name == "Resnet8 MD-DS":
-            model = StudentCIFAR10ModelResNet8(mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds")
+            model = StudentCIFAR10ModelResNet8(
+                mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds"
+            )
             learner = KDLightning
         elif model_name == "Resnet8 FedProto":
             model = FedProtoCIFAR10ModelResNet8()
@@ -448,10 +509,14 @@ async def main(config):
             model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="KD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8 PKD-DS":
-            model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelResnet8(
+                knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8 PKD-AS":
-            model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelResnet8(
+                knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8 PMD":
             model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="MD")
@@ -466,11 +531,31 @@ async def main(config):
             model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="MD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8 PMD-DS":
-            model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelResnet8(
+                knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet8 PMD-AS":
-            model = ProtoStudentCIFAR10ModelResnet8(knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR10ModelResnet8(
+                knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
+            model = CIFAR100ModelCNN()
+        else:
+            raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
+    elif dataset_str == "KITSUN":
+        dataset = KITSUNDataset(
+            num_classes=10,
+            partition_id=idx,
+            partitions_number=n_nodes,
+            iid=iid,
+            partition=partition_selection,
+            partition_parameter=partition_parameter,
+            seed=42,
+            config=config,
+        )
+        if model_name == "MLP":
+            model = KitsunModelMLP()
         else:
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "MilitarySAR":
@@ -522,7 +607,9 @@ async def main(config):
             model = StudentCIFAR100ModelResNet18(mutual_distilation="MD", send_logic="mixed_2rounds")
             learner = KDLightning
         elif model_name == "Resnet18 MD-DS":
-            model = StudentCIFAR100ModelResNet18(mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds")
+            model = StudentCIFAR100ModelResNet18(
+                mutual_distilation="MD", decreasing_beta=True, send_logic="mixed_2rounds"
+            )
             learner = KDLightning
         elif model_name == "Resnet18 FedProto":
             model = FedProtoCIFAR100ModelResNet18()
@@ -545,10 +632,14 @@ async def main(config):
             model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="KD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet18 PKD-DS":
-            model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR100ModelResnet18(
+                knowledge_distilation="KD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet18 PKD-AS":
-            model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR100ModelResnet18(
+                knowledge_distilation="KD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet18 PMD":
             model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="MD")
@@ -563,10 +654,14 @@ async def main(config):
             model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="MD", send_logic="mixed_2rounds")
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet18 PMD-DS":
-            model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR100ModelResnet18(
+                knowledge_distilation="MD", weighting="decreasing", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         elif model_name == "Resnet18 PMD-AS":
-            model = ProtoStudentCIFAR100ModelResnet18(knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds")
+            model = ProtoStudentCIFAR100ModelResnet18(
+                knowledge_distilation="MD", weighting="adaptative", send_logic="mixed_2rounds"
+            )
             learner = ProtoKDQuantizationLightning
         else:
             raise ValueError(f"Model {model} not supported")
@@ -586,7 +681,7 @@ async def main(config):
         batch_size=dataset.batch_size,
         label_flipping=label_flipping,
         data_poisoning=data_poisoning,
-        poisoned_persent=poisoned_persent,
+        poisoned_percent=poisoned_percent,
         poisoned_ratio=poisoned_ratio,
         targeted=targeted,
         target_label=target_label,
@@ -676,7 +771,7 @@ async def main(config):
         time.sleep(6000)  # DEBUG purposes
         import requests
 
-        url = f'http://{node.config.participant["scenario_args"]["controller"]}/platform/{node.config.participant["scenario_args"]["name"]}/round'
+        url = f"http://{node.config.participant['scenario_args']['controller']}/platform/{node.config.participant['scenario_args']['name']}/round"
         current_round = int(requests.get(url).json()["round"])
         while current_round < additional_node_round:
             logging.info(f"Waiting for round {additional_node_round} to start")
@@ -693,12 +788,14 @@ if __name__ == "__main__":
     if sys.platform == "win32" or config.participant["scenario_args"]["deployment"] == "docker":
         import asyncio
 
-        asyncio.run(main(), debug=False)
+        asyncio.run(main(config), debug=False)
     else:
         try:
-            import uvloop 
+            import uvloop
+
             uvloop.run(main(config), debug=False)
         except ImportError:
             logging.warning("uvloop not available, using default loop")
             import asyncio
+
             asyncio.run(main(config), debug=False)
