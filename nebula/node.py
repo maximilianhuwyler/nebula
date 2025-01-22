@@ -152,7 +152,7 @@ async def main(config):
             raise ValueError(f"Model {model} not supported for dataset {dataset_str}")
     elif dataset_str == "EMNIST":
         dataset = EMNISTDataset(
-            num_classes=10,
+            num_classes=47,
             partition_id=idx,
             partitions_number=n_nodes,
             iid=iid,

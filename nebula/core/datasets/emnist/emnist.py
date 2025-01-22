@@ -9,7 +9,7 @@ from nebula.core.datasets.nebuladataset import NebulaDataset
 class EMNISTDataset(NebulaDataset):
     def __init__(
         self,
-        num_classes=10,
+        num_classes=47,
         partition_id=0,
         partitions_number=1,
         batch_size=32,
@@ -70,7 +70,7 @@ class EMNISTDataset(NebulaDataset):
             train=train,
             download=True,
             transform=apply_transforms,
-            split="digits",
+            split="balanced",
         )
 
     def generate_non_iid_map(self, dataset, partition="dirichlet", partition_parameter=0.5):
