@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from nebula.core.neighbormanagement.nodemanager import NodeManager
 
 VANILLA_LEARNING_RATE = 1e-3
-FR_LEARNING_RATE = 2e-3
+FR_LEARNING_RATE = 1e-3
 MAX_ROUNDS = 20
 DEFAULT_WEIGHT_MODIFIER = 3
 

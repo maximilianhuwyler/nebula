@@ -253,7 +253,7 @@ class CommunicationsManager:
                 # non-starting nodes receive the initialized model from the starting node
                 if not self.engine.get_federation_ready_lock().locked() or self.engine.get_initialization_status():
                     decoded_model = self.engine.trainer.deserialize_model(message.parameters)
-                    if self.config.participant["adaptive_args"]["model_similarity"]:
+                    if False and self.config.participant["adaptive_args"]["model_similarity"]:
                         logging.info("🤖  handle_model_message | Checking model similarity")
                         cosine_value = cosine_metric(
                             self.engine.trainer.get_model_parameters(),

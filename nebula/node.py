@@ -361,10 +361,14 @@ async def main(config):
         #if config.participant["network_args"]["ip"] == "192.168.50.11":
             #time.sleep(820)
         
-        if config.participant["network_args"]["ip"] == "192.168.50.9":
-            time.sleep(820)
-        elif config.participant["network_args"]["ip"] == "192.168.50.12":
-            time.sleep(420)
+        time.sleep(800)
+        
+        #if config.participant["network_args"]["ip"] == "192.168.51.11":
+        #    logging.info("waiting 385s")
+            
+        #elif config.participant["network_args"]["ip"] == "192.168.51.12":
+        #    logging.info("waiting 800s")
+        #    time.sleep(800)
             
         #time.sleep(6000)  # DEBUG purposes
         #import requests

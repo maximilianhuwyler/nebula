@@ -16,6 +16,7 @@ MappingSimilarityType = Callable[[float, float], Annotated[float, "Value in (0, 
 MAX_HISTORIC_SIZE = 10      # Number of historic data storaged
 GLOBAL_PRIORITY = 0.5       # Parameter to priorize global vs local metrics
 EPSILON = 0.001
+SIGMOID_THRESHOLD = 0.92
 TOLERANCE_THRESHOLD = 2     # Threshold to start appliying full penalty
 SMOOTH_FACTOR = 0.5
 
@@ -141,7 +142,7 @@ class Momentum():
         historic = await self._get_similarity_historic(updates.keys())                      # Get historic similarities values from nodes that has sent update this round
               
         def sigmoid(similarity, k=2.5):
-            if similarity >= 0.92:  # threshold to consider better updates
+            if similarity >= SIGMOID_THRESHOLD:  # threshold to consider better updates
                 sigmoid = 1
             else:
                 sigmoid = 1 / (1 + np.exp(-k * (similarity)))
