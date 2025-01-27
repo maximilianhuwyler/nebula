@@ -14,7 +14,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt-get update && apt-get install -y python3.11 python3.11-dev python3.11-distutils python3.11-venv
 
 # Install curl and network tools
-RUN apt-get install -y curl net-tools iproute2 iputils-ping
+RUN apt-get update && apt-get install -y curl net-tools iproute2 iputils-ping
 
 # Update alternatives to make Python 3.11 the default
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 2
