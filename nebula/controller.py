@@ -90,6 +90,7 @@ async def get_least_memory_gpu():
     gpu_with_least_memory_index = None
 
     if importlib.util.find_spec("pynvml") is not None:
+        max_memory_used_percent = 50
         try:
             import pynvml
 
@@ -193,18 +194,20 @@ class NebulaEventHandler(PatternMatchingEventHandler):
         try:
             port_mapping = {}
             new_port_start = 50000
-            
+
             participant_files = sorted(
                 f for f in os.listdir(scenario_path) if f.endswith(".json") and f.startswith("participant")
             )
-            
+
             for filename in participant_files:
                 file_path = os.path.join(scenario_path, filename)
                 with open(file_path) as json_file:
                     node = json.load(json_file)
                 current_port = node["network_args"]["port"]
                 port_mapping[current_port] = SocketUtils.find_free_port(start_port=new_port_start)
-                logging.info(f"Participant file: {filename} | Current port: {current_port} | New port: {port_mapping[current_port]}")
+                logging.info(
+                    f"Participant file: {filename} | Current port: {current_port} | New port: {port_mapping[current_port]}"
+                )
                 new_port_start = port_mapping[current_port] + 1
 
             for filename in participant_files:

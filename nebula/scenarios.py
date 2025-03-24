@@ -16,12 +16,21 @@ import tensorboard_reducer as tbr
 from nebula.addons.blockchain.blockchain_deployer import BlockchainDeployer
 from nebula.addons.topologymanager import TopologyManager
 from nebula.config.config import Config
+from nebula.core.datasets.cifar10.cifar10 import CIFAR10Dataset
+from nebula.core.datasets.cifar100.cifar100 import CIFAR100Dataset
+from nebula.core.datasets.emnist.emnist import EMNISTDataset
+from nebula.core.datasets.fashionmnist.fashionmnist import FashionMNISTDataset
+from nebula.core.datasets.mnist.mnist import MNISTDataset
 from nebula.core.utils.certificate import generate_ca_certificate, generate_certificate
 from nebula.utils import DockerUtils, FileUtils
 
 
 # Definition of a scenario
 class Scenario:
+    """
+    Class to define a scenario for the NEBULA platform.
+    It contains all the parameters needed to create a scenario and run it on the platform.
+    """
     def __init__(
         self,
         scenario_title,
@@ -372,6 +381,7 @@ class ScenarioManagement:
             participant_config["mobility_args"]["scheme_mobility"] = self.scenario.scheme_mobility
             participant_config["mobility_args"]["round_frequency"] = self.scenario.round_frequency
             participant_config["reporter_args"]["report_status_data_queue"] = self.scenario.report_status_data_queue
+            participant_config["mobility_args"]["topology_type"] = self.scenario.topology
 
             with open(participant_file, "w") as f:
                 json.dump(participant_config, f, sort_keys=False, indent=2)
@@ -460,11 +470,14 @@ class ScenarioManagement:
         # Update participants configuration
         is_start_node = False
         config_participants = []
+        # ap = len(additional_participants) if additional_participants else 0
+        additional_nodes = len(additional_participants) if additional_participants else 0
+        logging.info(f"######## nodes: {self.n_nodes} + additionals: {additional_nodes} ######")
         for i in range(self.n_nodes):
             with open(f"{self.config_dir}/participant_" + str(i) + ".json") as f:
                 participant_config = json.load(f)
             participant_config["scenario_args"]["federation"] = self.scenario.federation
-            participant_config["scenario_args"]["n_nodes"] = self.n_nodes
+            participant_config["scenario_args"]["n_nodes"] = self.n_nodes + additional_nodes
             participant_config["network_args"]["neighbors"] = self.topologymanager.get_neighbors_string(i)
             participant_config["scenario_args"]["name"] = self.scenario_name
             participant_config["scenario_args"]["start_time"] = self.start_date_scenario
@@ -515,7 +528,7 @@ class ScenarioManagement:
 
         # Add role to the topology (visualization purposes)
         self.topologymanager.update_nodes(config_participants)
-        self.topologymanager.draw_graph(path=f"{self.log_dir}/{self.scenario_name}/topology.png", plot=False)
+        self.topologymanager.draw_graph(path=f"{self.config_dir}/topology.png", plot=False)
 
         # Include additional participants (if any) as copies of the last participant
         additional_participants_files = []
@@ -530,14 +543,19 @@ class ScenarioManagement:
                 with open(additional_participant_file) as f:
                     participant_config = json.load(f)
 
-                participant_config["scenario_args"]["n_nodes"] = self.n_nodes + i + 1
+                logging.info(f"Configuration | additional nodes |  participant: {self.n_nodes + i + 1}")
+                last_ip = participant_config["network_args"]["ip"]
+                logging.info(f"Valores de la ultima ip: ({last_ip})")
+                participant_config["scenario_args"]["n_nodes"] = self.n_nodes + additional_nodes  # self.n_nodes + i + 1
                 participant_config["device_args"]["idx"] = last_participant_index + i
                 participant_config["network_args"]["neighbors"] = ""
                 participant_config["network_args"]["ip"] = (
                     participant_config["network_args"]["ip"].rsplit(".", 1)[0]
                     + "."
-                    + str(int(participant_config["network_args"]["ip"].rsplit(".", 1)[1]) + 1)
+                    + str(int(participant_config["network_args"]["ip"].rsplit(".", 1)[1]) + i + 1)
                 )
+                ip = str(participant_config["network_args"]["ip"])
+                logging.info(f"El valor almacenado en json es: {ip}")
                 participant_config["device_args"]["uid"] = hashlib.sha1(
                     (
                         str(participant_config["network_args"]["ip"])
@@ -548,6 +566,9 @@ class ScenarioManagement:
                 participant_config["mobility_args"]["additional_node"]["status"] = True
                 participant_config["mobility_args"]["additional_node"]["round_start"] = additional_participant["round"]
 
+                # used for late creation nodes
+                participant_config["mobility_args"]["late_creation"] = True
+
                 with open(additional_participant_file, "w") as f:
                     json.dump(participant_config, f, sort_keys=False, indent=2)
 
@@ -555,6 +576,66 @@ class ScenarioManagement:
 
         if additional_participants_files:
             self.config.add_participants_config(additional_participants_files)
+
+        # Splitting dataset
+        dataset_name = self.scenario.dataset
+        dataset = None
+        if dataset_name == "MNIST":
+            dataset = MNISTDataset(
+                num_classes=10,
+                partitions_number=self.n_nodes,
+                iid=self.scenario.iid,
+                partition=self.scenario.partition_selection,
+                partition_parameter=self.scenario.partition_parameter,
+                seed=42,
+                config_dir=self.config_dir,
+            )
+        elif dataset_name == "FashionMNIST":
+            dataset = FashionMNISTDataset(
+                num_classes=10,
+                partitions_number=self.n_nodes,
+                iid=self.scenario.iid,
+                partition=self.scenario.partition_selection,
+                partition_parameter=self.scenario.partition_parameter,
+                seed=42,
+                config_dir=self.config_dir,
+            )
+        elif dataset_name == "EMNIST":
+            dataset = EMNISTDataset(
+                num_classes=10,
+                partitions_number=self.n_nodes,
+                iid=self.scenario.iid,
+                partition=self.scenario.partition_selection,
+                partition_parameter=self.scenario.partition_parameter,
+                seed=42,
+                config_dir=self.config_dir,
+            )
+        elif dataset_name == "CIFAR10":
+            dataset = CIFAR10Dataset(
+                num_classes=10,
+                partitions_number=self.n_nodes,
+                iid=self.scenario.iid,
+                partition=self.scenario.partition_selection,
+                partition_parameter=self.scenario.partition_parameter,
+                seed=42,
+                config_dir=self.config_dir,
+            )
+        elif dataset_name == "CIFAR100":
+            dataset = CIFAR100Dataset(
+                num_classes=100,
+                partitions_number=self.n_nodes,
+                iid=self.scenario.iid,
+                partition=self.scenario.partition_selection,
+                partition_parameter=self.scenario.partition_parameter,
+                seed=42,
+                config_dir=self.config_dir,
+            )
+        else:
+            raise ValueError(f"Dataset {dataset_name} not supported")
+
+        logging.info(f"Splitting {dataset_name} dataset...")
+        dataset.initialize_dataset()
+        logging.info(f"Splitting {dataset_name} dataset... Done")
 
         if self.scenario.deployment in ["docker", "process"]:
             if self.use_blockchain:

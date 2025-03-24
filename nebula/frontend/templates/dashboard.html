@@ -59,30 +59,6 @@
                 <p style="color: #772953; font-weight: bold">The federation is currently running</p>
             </div>
             {% endif %}
-            <div class="table-responsive">
-                <table id="table-queue" class="table small">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>scenarios_finished</th>
-                            <th>/</th>
-                            <th>scenarios_list_length</th>
-                        </tr>
-                    </thead>
-                    {% for user, user_data in user_data_store.items() %}
-                        <tr>
-                            <td id="user">{{ user}}</td>
-                            <td id="scenarios_finished" style="text-align: center;">{{ user_data.scenarios_finished }}</td>
-                            <td id="bar">{{ "/" }}</td>
-                            <td id="scenarios_list_length" style="text-align: center;">{{ user_data.scenarios_list_length }}</td>
-                            <!-- <td class="td-icons">
-                                <a href="{{ url_for('nebula_stop_scenario', scenario_name=scenario_running[0], stop_all=True) }}"
-                                class="label btn btn-danger">Stop scenario queue</a>
-                            </td> -->
-                        </tr>
-                    {% endfor %}
-                </table>
-            </div>
             {% if scenario_running %}
             <div style="text-align: center; display: flex;justify-content: center;" class="col">
                 <p style="color: #772953; font-weight: bold; padding-top: 6px;">Scenarios queue {{ scenarios_finished
@@ -246,7 +222,7 @@
 
 <!-- <script>
     setInterval(function () {
-        fetch('/nebula/api/dashboard/runningscenario')
+        fetch('/platform/api/dashboard/runningscenario')
             .then(response => response.json())
             .then(data => {
                 if (data.name) {
@@ -266,7 +242,7 @@
         $('#confirm-modal #confirm-modal-body').html('Are you sure you want to relaunch the scenario ' + scenario_title + '?');
 
         $('#confirm-modal #yes-button').off('click').on('click', function () {
-            const response = fetch('/nebula/dashboard/' + scenario_name + '/relaunch', {
+            const response = fetch('/platform/dashboard/' + scenario_name + '/relaunch', {
                 method: 'GET'
             })
                 .then(response => {
@@ -294,7 +270,7 @@
         $('#confirm-modal #confirm-modal-body').html('Are you sure you want to remove the scenario ' + scenario_name + '?<br><br><p class="badge text-bg-danger">Warning: you will remove the scenario from the database</p>');
 
         $('#confirm-modal #yes-button').off('click').on('click', function () {
-            const response = fetch('/nebula/dashboard/' + scenario_name + '/remove', {
+            const response = fetch('/platform/dashboard/' + scenario_name + '/remove', {
                 method: 'GET'
             })
                 .then(response => {
@@ -341,7 +317,7 @@
 
         if (notesRow.style.display === 'none') {
             try {
-                const response = await fetch('/nebula/dashboard/' + scenarioName + '/notes');
+                const response = await fetch('/platform/dashboard/' + scenarioName + '/notes');
                 const data = await response.json();
                 console.log(data);
 
@@ -366,7 +342,7 @@
 
         if (configRow.style.display === 'none') {
             try {
-                const response = await fetch(`/nebula/dashboard/${scenarioName}/config`);
+                const response = await fetch(`/platform/dashboard/${scenarioName}/config`);
                 const data = await response.json();
 
                 if (data.status === 'success') {
@@ -386,7 +362,7 @@
     async function saveNotes(scenarioName) {
         const notesText = document.getElementById('notes-text-' + scenarioName).value;
 
-        const response = await fetch('/nebula/dashboard/' + scenarioName + '/save_note', {
+        const response = await fetch('/platform/dashboard/' + scenarioName + '/save_note', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -132,9 +132,6 @@
                         <label style="display: inline-block; align-items: center; margin-bottom: 10px;">
                             <input type="checkbox" id="mod-cifar10" value='CIFAR10' style="margin-right: 10px; margin-left: 10px;">CIFAR10
                         </label>
-                        <label style="display: inline-block; align-items: center; margin-bottom: 10px;">
-                            <input type="checkbox" id="mod-militarysar" value='MilitarySAR' style="margin-right: 10px; margin-left: 10px;">MilitarySAR
-                        </label>
                     </div>
                     <hr>
                     <h5>Robustness <i class="fa fa-shield"></i>
@@ -158,9 +155,6 @@
                         <div class="col-md-7" style="right: inherit;">
                             <label>
                                 <input type="checkbox" id="mod-neuroninversion" value='GLLNeuronInversionAttack' style="margin-right: 10px;">GLL Neuron Inversion
-                            </label>
-                            <label>
-                                <input type="checkbox" id="mod-noiseinjection" value='NoiseInjectionAttack' style="margin-right: 10px;">Noise Injection
                             </label>
                             <label>
                                 <input type="checkbox" id="mod-swappingweights" value='SwappingWeightsAttack' style="margin-right: 10px;">Swapping Weights
@@ -316,7 +310,7 @@
                             <i id="iidHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
                         </small>
                     </div>
-                    <h5 class="step-title">Partition Methods</h5>
+                    <h5 class="step-title">Partition methods</h5>
                     <div class="form-check form-check-inline">
                         <select class="form-control" id="partitionSelect" name="partition"
                             style="display: inline; width: 50%">
@@ -504,9 +498,9 @@
                             <option>Sample Poisoning</option>
                             <option>Model Poisoning</option>
                             <option>GLL Neuron Inversion</option>
-                            <option>Noise Injection</option>
                             <option>Swapping Weights</option>
                             <option>Delayer</option>
+                            <option>Flooding</option>
                         </select>
                         <h5 id="poisoned-node-title" class="step-title" style="margin-left: 11px; display: none;">% Malicious nodes</h5>
                         <div class="form-check form-check-inline" style="display: none;" id="poisoned-node-percent-container">
@@ -561,12 +555,6 @@
                                 placeholder="target changed label" min="0" value="7"
                                 style="display: inline; width: 20%">
                         </div>
-                        <h5 id="strength-title" class="step-title" style="display: none;">Noise strength</h5>
-                        <div class="form-check form-check-inline" id="strength-container" style="display: none;">
-                            <input type="number" class="form-control" id="strength"
-                                placeholder="Noise strength" value="10000"
-                                style="display: inline; width: 20%">
-                        </div>
                         <h5 id="layer_idx-title" class="step-title" style="display: none;">Layer</h5>
                         <div class="form-check form-check-inline" id="layer_idx-container" style="display: none;">
                             <input type="number" class="form-control" id="layer_idx"
@@ -579,6 +567,24 @@
                                 placeholder="Delay" min="0" value="10"
                                 style="display: inline; width: 80%">
                         </div>
+                        <h5 id="flooding-factor-title" class="step-title" style="display: none;">Flooding Factor</h5>
+                        <div class="form-check form-check-inline" id="flooding-factor-container" style="display: none;">
+                            <input type="number" class="form-control" id="flooding-factor"
+                                placeholder="Flooding Factor" min="1" value="100"
+                                style="display: inline; width: 80%">
+                        </div>
+                        <h5 id="target-percentage-title" class="step-title" style="display: none;">Target Percentage</h5>
+                        <div class="form-check form-check-inline" id="target-percentage-container" style="display: none;">
+                            <input type="number" class="form-control" id="target-percentage"
+                                placeholder="Target Percentage" min="1" value="100"
+                                style="display: inline; width: 80%">
+                        </div>
+                        <h5 id="selection-interval-title" class="step-title" style="display: none;">Target Selection Interval</h5>
+                        <div class="form-check form-check-inline" id="selection-interval-container" style="display: none;">
+                            <input type="number" class="form-control" id="selection-interval"
+                                placeholder="Selection Interval" min="1" value="1"
+                                style="display: inline; width: 80%">
+                        </div>
                         <h5 id="start-attack-title" class="step-title" style="display: none;">Starting round</h5>
                         <div class="form-check form-check-inline" id="start-attack-container" style="display: none;">
                             <input type="number" class="form-control" id="start-attack"
@@ -589,6 +595,12 @@
                         <div class="form-check form-check-inline" id="stop-attack-container" style="display: none;">
                             <input type="number" class="form-control" id="stop-attack"
                                 placeholder="Stopping round" min="0" value="10"
+                                style="display: inline; width: 80%">
+                        </div>
+                        <h5 id="attack-interval-title" class="step-title" style="display: none;">Attack interval</h5>
+                        <div class="form-check form-check-inline" id="attack-interval-container" style="display: none;">
+                            <input type="number" class="form-control" id="attack-interval"
+                                placeholder="Repetitions" min="1" value="1"
                                 style="display: inline; width: 80%">
                         </div>
                     </div>
@@ -1011,7 +1023,6 @@
             "EMNIST": ["MLP", "CNN"],
             "CIFAR10": ["CNN", "CNNv2", "CNNv3", "ResNet9", "fastermobilenet", "simplemobilenet"],
             "CIFAR100": ["CNN"],
-            "KITSUN": ["MLP"],
         }
         var datasetSelect = document.getElementById("datasetSelect");
         var modelSelect = document.getElementById("modelSelect");
@@ -1118,11 +1129,14 @@
             data["attack_params"].targeted = document.getElementById("targeted").checked;
             data["attack_params"].target_label = document.getElementById("target_label").value;
             data["attack_params"].target_changed_label = document.getElementById("target_changed_label").value;
-            data["attack_params"].strength = document.getElementById("strength").value;
             data["attack_params"].layer_idx = document.getElementById("layer_idx").value;
             data["attack_params"].delay = document.getElementById("delay").value;
             data["attack_params"].round_start_attack = document.getElementById("start-attack").value
             data["attack_params"].round_stop_attack = document.getElementById("stop-attack").value
+            data["attack_params"].attack_interval = document.getElementById("attack-interval").value
+            data["attack_params"].target_percentage = document.getElementById("target-percentage").value
+            data["attack_params"].selection_interval = document.getElementById("selection-interval").value
+            data["attack_params"].flooding_factor = document.getElementById("flooding-factor").value
             // Step 13
             data["with_reputation"] = document.getElementById("with-reputation-btn").checked ? true : false
             data["is_dynamic_topology"] = document.getElementById("dynamic-topology-btn").checked ? true : false
@@ -1223,20 +1237,23 @@
                 selectElement.value = data["attacks"];
                 selectElement.dispatchEvent(new Event('change'));
 
-                document.getElementById("poisoned-node-percent").value = data["poisoned_node_percent"]
-                document.getElementById("poisoned-sample-percent").value = data["poisoned_sample_percent"]
-                document.getElementById("poisoned-noise-percent").value = data["poisoned_noise_percent"]
+                document.getElementById("poisoned-node-percent").value = data.attack_params.poisoned_node_percent;
+                document.getElementById("poisoned-sample-percent").value = data.attack_params.poisoned_sample_percent;
+                document.getElementById("poisoned-noise-percent").value = data.attack_params.poisoned_noise_percent;
                 document.getElementById("poisoned-sample-percent").value = data.attack_params.poisoned_percent;
                 document.getElementById("poisoned-noise-percent").value = data.attack_params.poisoned_ratio;
                 document.getElementById("noise_type").value = data.attack_params.noise_type;
                 document.getElementById("targeted").checked = data.attack_params.targeted;
                 document.getElementById("target_label").value = data.attack_params.target_label;
                 document.getElementById("target_changed_label").value = data.attack_params.target_changed_label;
-                document.getElementById("strength").value = data.attack_params.strength;
                 document.getElementById("layer_idx").value = data.attack_params.layer_idx;
                 document.getElementById("delay").value = data.attack_params.delay;
-                document.getElementById("start-attack").value = data.attack_params.round_start_attack
-                document.getElementById("stop-attack").value = data.attack_params.round_stop_attack
+                document.getElementById("start-attack").value = data.attack_params.round_start_attack;
+                document.getElementById("stop-attack").value = data.attack_params.round_stop_attack;
+                document.getElementById("attack-interval").value = data.attack_params.attack_interval;
+                document.getElementById("target-percentage").value = data.attack_params.target_percentage;
+                document.getElementById("selection-interval").value = data.attack_params.selection_interval;
+                document.getElementById("flooding-factor").value = data.attack_params.flooding_factor;
 
                 if (data["poisoned_node_percent"] == 0)
                 {
@@ -1380,7 +1397,6 @@
             '                    <li>MNIST: The MNIST dataset</li>\n' +
             '                    <li>FashionMNIST: The FashionMNIST dataset</li>\n' +
             '                    <li>CIFAR10: The CIFAR10 dataset</li>\n' +
-            '                    <li>SYSCALL: The SYSCALL dataset</li>\n' +
             '                </ul>'
 
         contentIIDHelp = '<ul>\n' +
@@ -1418,9 +1434,17 @@
             '                    <li>Manual: Select malicious nodes in the graph</li>\n' +
             '                </ul>'
 
+        contentProcessHelp = '<ul>\n' +
+            '                    <li>Processes: Deploy the nodes of the federation using processes</li>\n' +
+            '                </ul>';
+
+        contentDockerHelp = '<ul>\n' +
+            '                    <li>Docker: Deploy the nodes of the federation using docker containers</li>\n' +
+            '                </ul>';
+
         var popoverTriggerEl = document.getElementById("topologyCustomIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: "Network topology",
+            title: "Topology generation",
             content: contentTopologyCustomHelp,
             trigger: "hover",
             placement: "right",
@@ -1431,7 +1455,7 @@
 
         var popoverTriggerEl = document.getElementById("topologyPredefinedIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: "Network topology",
+            title: "Topology generation",
             content: contentTopologyPredefinedHelp,
             trigger: "hover",
             placement: "right",
@@ -1442,7 +1466,7 @@
 
         var popoverTriggerEl = document.getElementById("architectureHelpIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: "Federation architecture",
+            title: "Federation approach",
             content: contentArchitectureHelp,
             trigger: "hover",
             placement: "right",
@@ -1453,7 +1477,7 @@
 
         var popoverTriggerEl = document.getElementById("datasetHelpIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: "Dataset",
+            title: "Federated dataset",
             content: contentDatasetHelp,
             trigger: "hover",
             placement: "right",
@@ -1464,7 +1488,7 @@
 
         var popoverTriggerEl = document.getElementById("iidHelpIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: "IID",
+            title: "Dataset type",
             content: contentIIDHelp,
             trigger: "hover",
             placement: "right",
@@ -1475,7 +1499,7 @@
 
         var popoverTriggerEl = document.getElementById("partitionMethodsHelpIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: 'Partition Methods',
+            title: 'Partition methods',
             content: contentPartitionMethodsHelp,
             trigger: 'hover',
             placement: 'right',
@@ -1486,7 +1510,7 @@
 
         var popoverTriggerEl = document.getElementById("parameterSettingHelpIcon");
         var popover = new bootstrap.Popover(popoverTriggerEl, {
-            title: 'IID',
+            title: 'Parameter setting',
             html: true,
             placement: 'right',
             content: contentParameterSettingHelp,
@@ -1517,15 +1541,26 @@
             delay: { show: 500, hide: 100 },
         });
 
-        // When click processHelpIcon, redirect to the documentation page
-        var processIcon = document.getElementById("processHelpIcon");
-        processIcon.addEventListener("click", function () {
-            window.open("#", "_blank");
+        var popoverTriggerEl = document.getElementById("processHelpIcon");
+        var popover = new bootstrap.Popover(popoverTriggerEl, {
+            title: "Deployment type",
+            content: contentProcessHelp,
+            trigger: "hover",
+            placement: "right",
+            html: true,
+            container: "body",
+            delay: { show: 500, hide: 100 },
         });
 
-        var dockerIcon = document.getElementById("dockerHelpIcon");
-        dockerIcon.addEventListener("click", function () {
-            window.open("#", "_blank");
+        var popoverTriggerEl = document.getElementById("dockerHelpIcon");
+        var popover = new bootstrap.Popover(popoverTriggerEl, {
+            title: "Deployment type",
+            content: contentDockerHelp,
+            trigger: "hover",
+            placement: "right",
+            html: true,
+            container: "body",
+            delay: { show: 500, hide: 100 },
         });
     </script>
 
@@ -2003,7 +2038,7 @@
             selectALL(['mod-fully', 'mod-ring', 'mod-star'], document.getElementById("mod-topology").checked);
         });
         document.getElementById("mod-dataset").addEventListener("change", function() {
-            selectALL(['mod-mnist', 'mod-fmnist', 'mod-cifar10', 'mod-militarysar'], document.getElementById("mod-dataset").checked);
+            selectALL(['mod-mnist', 'mod-fmnist', 'mod-cifar10'], document.getElementById("mod-dataset").checked);
         });
         document.getElementById("mod-robustness").addEventListener("change", function() {
             selectALL(['mod-noattack', 'mod-labelflipping', 'mod-samplepoisoning', 'mod-modelpoisoning', 'mod-neuroninversion', 'mod-noiseinjection',
@@ -2025,7 +2060,7 @@
                 return;
             }
 
-            var datasets = ['mod-mnist', 'mod-fmnist', 'mod-cifar10', 'mod-militarysar'];
+            var datasets = ['mod-mnist', 'mod-fmnist', 'mod-cifar10'];
             if (!atLeastOneChecked(datasets)) {
                 alert("Please, select one dataset at least.");
                 return;
@@ -2135,7 +2170,7 @@
     <script>
         // Send configuration to the server for deployment
 
-        // When click "run-btn" button, create a POST request to /nebula/dashboard/deployment/run with JSON data
+        // When click "run-btn" button, create a POST request to /platform/dashboard/deployment/run with JSON data
         document.getElementById("run-btn").addEventListener("click", function () {
 
             // Show the modal
@@ -2171,7 +2206,7 @@
                     document.querySelector(".overlay").style.display = "block";
                     document.getElementById("spinner").style.display = "block";
 
-                    fetch("/nebula/dashboard/deployment/run", {
+                    fetch("/platform/dashboard/deployment/run", {
                         method: "POST",
                         headers: {
                             'Content-Type': 'application/json'
@@ -2608,7 +2643,7 @@
             let textAreas = "";
             for (let i = 0; i < numberOfNodes; i++) {
                 textAreas += `<h4>Participant ${i}</h4>`;
-                let response = await fetch(`/nebula/dashboard/deployment/participant/file`);
+                let response = await fetch(`/platform/dashboard/deployment/participant/file`);
                 let json = await response.json();
                 textAreas += `<textarea class="form-control" rows="10" cols="50" style="width:100%;" name="participant${i}">${JSON.stringify(json, null, 4)}</textarea>`;
                 // textAreas += `<textarea class="form-control" rows="10" cols="50" name="scenario" id="scenario" style="width:100%;"></textarea>`;
@@ -2677,12 +2712,8 @@
                 document.getElementById("poisoned-noise-percent-container").style.display = "none";
                 document.getElementById("noise-type-title").style.display = "none";
                 document.getElementById("noise-type-container").style.display = "none";
-                document.getElementById("targeted").checked = false;
-                document.getElementById("targeted").dispatchEvent(new Event('change'));
                 document.getElementById("targeted-title").style.display = "none";
                 document.getElementById("targeted-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "none";
@@ -2691,6 +2722,14 @@
                 document.getElementById("start-attack-container").style.display = "none";
                 document.getElementById("stop-attack-title").style.display = "none";
                 document.getElementById("stop-attack-container").style.display = "none";
+                document.getElementById("attack-interval-title").style.display = "none";
+                document.getElementById("attack-interval-container").style.display = "none";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "Label Flipping"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2706,8 +2745,6 @@
                 document.getElementById("targeted").dispatchEvent(new Event('change'));
                 document.getElementById("targeted-title").style.display = "block";
                 document.getElementById("targeted-container").style.display = "block";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "none";
@@ -2716,6 +2753,14 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "Sample Poisoning"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2731,8 +2776,6 @@
                 document.getElementById("targeted").dispatchEvent(new Event('change'));
                 document.getElementById("targeted-title").style.display = "block";
                 document.getElementById("targeted-container").style.display = "block";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "none";
@@ -2741,6 +2784,14 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "Model Poisoning"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2752,12 +2803,8 @@
                 document.getElementById("noise_type").value = "Gaussian";
                 document.getElementById("noise-type-title").style.display = "block";
                 document.getElementById("noise-type-container").style.display = "block";
-                document.getElementById("targeted").checked = false;
-                document.getElementById("targeted").dispatchEvent(new Event('change'));
                 document.getElementById("targeted-title").style.display = "none";
                 document.getElementById("targeted-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "none";
@@ -2766,6 +2813,14 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "GLL Neuron Inversion"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2782,8 +2837,6 @@
                 document.getElementById("target_label-container").style.display = "none";
                 document.getElementById("target_changed_label-title").style.display = "none";
                 document.getElementById("target_changed_label-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "none";
@@ -2792,32 +2845,14 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
-            }
-            else if(this.value == "Noise Injection"){
-                document.getElementById("poisoned-node-title").style.display = "block";
-                document.getElementById("poisoned-node-percent-container").style.display = "block";
-                document.getElementById("poisoned-sample-title").style.display = "none";
-                document.getElementById("poisoned-sample-percent-container").style.display = "none";
-                document.getElementById("poisoned-noise-title").style.display = "none";
-                document.getElementById("poisoned-noise-percent-container").style.display = "none";
-                document.getElementById("noise-type-title").style.display = "none";
-                document.getElementById("noise-type-container").style.display = "none";
-                document.getElementById("targeted-title").style.display = "none";
-                document.getElementById("targeted-container").style.display = "none";
-                document.getElementById("target_label-title").style.display = "none";
-                document.getElementById("target_label-container").style.display = "none";
-                document.getElementById("target_changed_label-title").style.display = "none";
-                document.getElementById("target_changed_label-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "block";
-                document.getElementById("strength-container").style.display = "block";
-                document.getElementById("layer_idx-title").style.display = "none";
-                document.getElementById("layer_idx-container").style.display = "none";
-                document.getElementById("delay-title").style.display = "none";
-                document.getElementById("delay-container").style.display = "none";
-                document.getElementById("start-attack-title").style.display = "block";
-                document.getElementById("start-attack-container").style.display = "block";
-                document.getElementById("stop-attack-title").style.display = "block";
-                document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "Swapping Weights"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2834,8 +2869,6 @@
                 document.getElementById("target_label-container").style.display = "none";
                 document.getElementById("target_changed_label-title").style.display = "none";
                 document.getElementById("target_changed_label-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "block";
                 document.getElementById("layer_idx-container").style.display = "block";
                 document.getElementById("delay-title").style.display = "none";
@@ -2844,6 +2877,14 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "none";
+                document.getElementById("target-percentage-container").style.display = "none";
+                document.getElementById("selection-interval-title").style.display = "none";
+                document.getElementById("selection-interval-container").style.display = "none";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
             }
             else if(this.value == "Delayer"){
                 document.getElementById("poisoned-node-title").style.display = "block";
@@ -2860,8 +2901,6 @@
                 document.getElementById("target_label-container").style.display = "none";
                 document.getElementById("target_changed_label-title").style.display = "none";
                 document.getElementById("target_changed_label-container").style.display = "none";
-                document.getElementById("strength-title").style.display = "none";
-                document.getElementById("strength-container").style.display = "none";
                 document.getElementById("layer_idx-title").style.display = "none";
                 document.getElementById("layer_idx-container").style.display = "none";
                 document.getElementById("delay-title").style.display = "block";
@@ -2870,6 +2909,46 @@
                 document.getElementById("start-attack-container").style.display = "block";
                 document.getElementById("stop-attack-title").style.display = "block";
                 document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "block";
+                document.getElementById("target-percentage-container").style.display = "block";
+                document.getElementById("selection-interval-title").style.display = "block";
+                document.getElementById("selection-interval-container").style.display = "block";
+                document.getElementById("flooding-factor-title").style.display = "none";
+                document.getElementById("flooding-factor-container").style.display = "none";
+            }
+            else if(this.value == "Flooding"){
+                document.getElementById("poisoned-node-title").style.display = "block";
+                document.getElementById("poisoned-node-percent-container").style.display = "block";
+                document.getElementById("poisoned-sample-title").style.display = "none";
+                document.getElementById("poisoned-sample-percent-container").style.display = "none";
+                document.getElementById("poisoned-noise-title").style.display = "none";
+                document.getElementById("poisoned-noise-percent-container").style.display = "none";
+                document.getElementById("noise-type-title").style.display = "none";
+                document.getElementById("noise-type-container").style.display = "none";
+                document.getElementById("targeted-title").style.display = "none";
+                document.getElementById("targeted-container").style.display = "none";
+                document.getElementById("target_label-title").style.display = "none";
+                document.getElementById("target_label-container").style.display = "none";
+                document.getElementById("target_changed_label-title").style.display = "none";
+                document.getElementById("target_changed_label-container").style.display = "none";
+                document.getElementById("layer_idx-title").style.display = "none";
+                document.getElementById("layer_idx-container").style.display = "none";
+                document.getElementById("delay-title").style.display = "none";
+                document.getElementById("delay-container").style.display = "none";
+                document.getElementById("start-attack-title").style.display = "block";
+                document.getElementById("start-attack-container").style.display = "block";
+                document.getElementById("stop-attack-title").style.display = "block";
+                document.getElementById("stop-attack-container").style.display = "block";
+                document.getElementById("attack-interval-title").style.display = "block";
+                document.getElementById("attack-interval-container").style.display = "block";
+                document.getElementById("target-percentage-title").style.display = "block";
+                document.getElementById("target-percentage-container").style.display = "block";
+                document.getElementById("selection-interval-title").style.display = "block";
+                document.getElementById("selection-interval-container").style.display = "block";
+                document.getElementById("flooding-factor-title").style.display = "block";
+                document.getElementById("flooding-factor-container").style.display = "block";
             }
         });
     </script>

@@ -111,18 +111,18 @@ def create_attack(engine) -> Attack:
         AttackException: If the specified attack name is not found in the `ATTACK_MAP`.
     """
     from nebula.addons.attacks.communications.delayerattack import DelayerAttack
+    from nebula.addons.attacks.communications.floodingattack import FloodingAttack
     from nebula.addons.attacks.dataset.datapoison import SamplePoisoningAttack
     from nebula.addons.attacks.dataset.labelflipping import LabelFlippingAttack
     from nebula.addons.attacks.model.gllneuroninversion import GLLNeuronInversionAttack
     from nebula.addons.attacks.model.modelpoison import ModelPoisonAttack
-    from nebula.addons.attacks.model.noiseinjection import NoiseInjectionAttack
     from nebula.addons.attacks.model.swappingweights import SwappingWeightsAttack
 
     ATTACK_MAP = {
         "GLL Neuron Inversion": GLLNeuronInversionAttack,
-        "Noise Injection": NoiseInjectionAttack,
         "Swapping Weights": SwappingWeightsAttack,
         "Delayer": DelayerAttack,
+        "Flooding": FloodingAttack,
         "Label Flipping": LabelFlippingAttack,
         "Sample Poisoning": SamplePoisoningAttack,
         "Model Poisoning": ModelPoisonAttack,
