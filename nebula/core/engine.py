@@ -1,16 +1,22 @@
 import asyncio
 import logging
 import os
+import pdb
+import random
+import sys
 
 import docker
 
 from nebula.addons.attacks.attacks import create_attack
 from nebula.addons.functions import print_msg_box
 from nebula.addons.reporter import Reporter
+from nebula.config.config import Config
 from nebula.core.aggregation.aggregator import create_aggregator, create_malicious_aggregator, create_target_aggregator
 from nebula.core.eventmanager import EventManager, event_handler
 from nebula.core.network.communications import CommunicationsManager
 from nebula.core.pb import nebula_pb2
+from nebula.core.training.lightning import Lightning
+from nebula.core.utils.helper import cosine_metric
 from nebula.core.utils.locker import Locker
 
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -18,13 +24,6 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("fsspec").setLevel(logging.WARNING)
 logging.getLogger("matplotlib").setLevel(logging.ERROR)
 logging.getLogger("plotly").setLevel(logging.ERROR)
-
-import pdb
-import sys
-
-from nebula.config.config import Config
-from nebula.core.training.lightning import Lightning
-from nebula.core.utils.helper import cosine_metric
 
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -70,6 +69,13 @@ class Engine:
         noise_type="gaussian",
     ):
         self.config = config
+
+        # manually select the node that leaves the federation and round for the retraining
+        self.retraining_round = 5
+
+        # check if the node has left the federation
+        self.node_left = False
+
         self.idx = config.participant["device_args"]["idx"]
         self.experiment_name = config.participant["scenario_args"]["name"]
         self.ip = config.participant["network_args"]["ip"]
@@ -469,12 +475,42 @@ class Engine:
             )
             self.trainer.on_round_start()
             self.federation_nodes = await self.cm.get_addrs_current_connections(only_direct=True, myself=True)
-            logging.info(f"Federation nodes: {self.federation_nodes}")
+            sorted_nodes = sorted(list(self.federation_nodes))
+
+            # add debugs to check the implementation
+            logging.info(f"Starting round {self.round} of {self.total_rounds}.")
+            logging.info(f"Current federation nodes: {self.federation_nodes}")
+
+            # check that the learning round matches the retraining round and the node leaves the federation
+            if self.round == self.retraining_round and not self.node_left:
+                logging.info(f"Round {self.round} — initiating node removal & retraining")
+
+                # Rrndomly select one node to be removed
+                candidate_nodes = [node for node in self.federation_nodes if self.name not in node]
+                if not candidate_nodes:
+                    logging.warning("No eligible nodes to remove from the federation.")
+                else:
+                    self.leaving_node = random.choice(candidate_nodes)
+
+                    if self.leaving_node in self.federation_nodes:
+                        self.federation_nodes.remove(self.leaving_node)
+                        await self.cm.disconnect(self.leaving_node)
+                        logging.info(f"Randomly removed node: {self.leaving_node}")
+                    else:
+                        logging.warning(f"Selected node {self.leaving_node} not found in federation.")
+
+                    logging.info(f"Federation nodes after removal: {self.federation_nodes}")
+
+                    self.node_left = True
+                    await self.full_retrain()
+                    logging.info("retraining complete")
+
             direct_connections = await self.cm.get_addrs_current_connections(only_direct=True)
             undirected_connections = await self.cm.get_addrs_current_connections(only_undirected=True)
             logging.info(f"Direct connections: {direct_connections} | Undirected connections: {undirected_connections}")
             logging.info(f"[Role {self.role}] Starting learning cycle...")
             await self.aggregator.update_federation_nodes(self.federation_nodes)
+
             await self._extended_learning_cycle()
 
             await self.get_round_lock().acquire_async()
@@ -522,6 +558,20 @@ class Engine:
                 self.client.containers.get(self.docker_id).stop()
             except Exception as e:
                 print(f"Error stopping Docker container with ID {self.docker_id}: {e}")
+
+    async def full_retrain(self):
+        logging.info(f"Starting training continuation with nodes: {self.federation_nodes}")
+
+        if self.leaving_node in self.federation_nodes:
+            self.federation_nodes.remove(self.leaving_node)
+
+        retrain_nodes = sorted(list(self.federation_nodes))
+
+        pre_retrain_metrics = await self.trainer.test()
+        self.trainer.train()
+
+        await self.cm.propagator.propagate("full_retrain")
+        logging.info("Model propagated to remaining nodes after retraining.")
 
     async def _extended_learning_cycle(self):
         """

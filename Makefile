@@ -17,7 +17,7 @@ check-uv:		## Check and install uv if necessary
 	fi
 
 .PHONY: install-python
-install-python: check-uv	## Install Python with uv
+install-python:	## Install Python with uv
 	@echo "🐍 Installing Python $(PYTHON_VERSION) with uv"
 	@$(UV) python install $(PYTHON_VERSION)
 	@echo "🔧 Configuring Python $(PYTHON_VERSION) as the default Python version"
@@ -50,37 +50,24 @@ install-production: install	## Install production dependencies
 .PHONY: shell
 shell:				## Start a shell in the uv environment
 	@echo "🐚 Starting a shell in the uv environment"
-	@if [ -n "$$VIRTUAL_ENV" ]; then \
-		echo "🐚 Already in a virtual environment: $$VIRTUAL_ENV"; \
-	elif [ ! -d ".venv" ]; then \
-		echo "❌ .venv directory not found. Running 'make install' to create it..."; \
-		$(MAKE) install; \
-	else \
-		echo "🐚 Run the following command to activate the virtual environment:"; \
-		echo ""; \
-		echo '[Linux/MacOS]	\033[1;32msource .venv/bin/activate\033[0m'; \
-		echo '[Windows]	\033[1;32m.venv\\bin\\activate\033[0m'; \
-		echo ""; \
-		echo "🚀 NEBULA is ready to use!"; \
-		echo "🚀 Created by \033[1;34mEnrique Tomás Martínez Beltrán\033[0m <\033[1;34menriquetomas@um.es\033[0m>"; \
-	fi
+	echo "🐚 Run the following command to activate the virtual environment:";
+	echo "";
+	echo '[Linux/MacOS]	\033[1;32msource .venv/bin/activate\033[0m';
+	echo '[Windows]	\033[1;32m.venv\\bin\\activate\033[0m';
+	echo "";
+	echo "🚀 NEBULA is ready to use!";
+	echo "🚀 Created by \033[1;34mEnrique Tomás Martínez Beltrán\033[0m <\033[1;34menriquetomas@um.es\033[0m>";
+
 
 .PHONY: update
 update:				## Update docker images
 	@echo "🐳 Updating docker images..."
 	@echo "🐳 Building nebula-frontend docker image. Do you want to continue (overrides existing image)? (y/n)"
-	@read ans; if [ "$${ans:-N}" = y ]; then \
-		docker build -t nebula-frontend -f nebula/frontend/Dockerfile .; \
-	else \
-		echo "Skipping nebula-frontend docker build."; \
-	fi
+	docker build -t nebula-frontend -f nebula/frontend/Dockerfile .
+
 	@echo ""
 	@echo "🐳 Building nebula-core docker image. Do you want to continue? (overrides existing image)? (y/n)"
-	@read ans; if [ "$${ans:-N}" = y ]; then \
-		docker build -t nebula-core .; \
-	else \
-		echo "Skipping nebula-core docker build."; \
-	fi
+	docker build -t nebula-core .
 	echo "🐳 Docker images updated."
 
 .PHONY: lock
