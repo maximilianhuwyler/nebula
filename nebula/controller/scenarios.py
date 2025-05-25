@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import tensorboard_reducer as tbr
 
 from nebula.addons.blockchain.blockchain_deployer import BlockchainDeployer
 from nebula.addons.topologymanager import TopologyManager
+from nebula.config.config import Config
 from nebula.core.datasets.cifar10.cifar10 import CIFAR10Dataset
 from nebula.core.datasets.cifar100.cifar100 import CIFAR100Dataset
 from nebula.core.datasets.emnist.emnist import EMNISTDataset
@@ -22,7 +24,6 @@ from nebula.core.datasets.fashionmnist.fashionmnist import FashionMNISTDataset
 from nebula.core.datasets.mnist.mnist import MNISTDataset
 from nebula.core.utils.certificate import generate_ca_certificate, generate_certificate
 from nebula.utils import DockerUtils, FileUtils
-from nebula.config.config import Config
 
 
 # Definition of a scenario
@@ -89,6 +90,9 @@ class Scenario:
         sad_model_handler,
         sar_arbitration_policy,
         sar_neighbor_policy,
+        unlearning_method,
+        leaving_node_percent,
+        departure_round,
     ):
         """
         Initialize the scenario.
@@ -151,6 +155,9 @@ class Scenario:
             sad_model_handler (str) :
             sar_arbitration_policy (str) :
             sar_neighbor_policy (str) :
+            unlearning_method (str): Method for unlearning.
+            leaving_node_percent (float): Percentage of nodes that will leave.
+            departure_round (int): Round in which nodes will leave.
         """
         self.scenario_title = scenario_title
         self.scenario_description = scenario_description
@@ -207,6 +214,29 @@ class Scenario:
         self.sad_model_handler = sad_model_handler
         self.sar_arbitration_policy = sar_arbitration_policy
         self.sar_neighbor_policy = sar_neighbor_policy
+        self.unlearning_method = unlearning_method
+        self.leaving_node_percent = leaving_node_percent
+        self.departure_round = departure_round
+
+    @staticmethod
+    def validate_percentage(value, name):
+        try:
+            value = float(value)
+            if not 0 <= value <= 100:
+                raise ValueError(f"{name} must be between 0 and 100")
+            return value
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Invalid {name}: {e!s}")
+
+    @staticmethod
+    def validate_positive_int(value, name):
+        try:
+            value = int(value)
+            if value < 0:
+                raise ValueError(f"{name} must be positive")
+            return value
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Invalid {name}: {e!s}")
 
     def attack_node_assign(
         self,
@@ -219,35 +249,19 @@ class Scenario:
         attack_params,
     ):
         """Identify which nodes will be attacked"""
-        import math
-        import random
-        import logging
-
-        # Validate input parameters
-        def validate_percentage(value, name):
-            try:
-                value = float(value)
-                if not 0 <= value <= 100:
-                    raise ValueError(f"{name} must be between 0 and 100")
-                return value
-            except (TypeError, ValueError) as e:
-                raise ValueError(f"Invalid {name}: {str(e)}")
-
-        def validate_positive_int(value, name):
-            try:
-                value = int(value)
-                if value < 0:
-                    raise ValueError(f"{name} must be positive")
-                return value
-            except (TypeError, ValueError) as e:
-                raise ValueError(f"Invalid {name}: {str(e)}")
 
         # Validate attack type
         valid_attacks = {
-            "No Attack", "Label Flipping", "Sample Poisoning", "Model Poisoning",
-            "GLL Neuron Inversion", "Swapping Weights", "Delayer", "Flooding"
+            "No Attack",
+            "Label Flipping",
+            "Sample Poisoning",
+            "Model Poisoning",
+            "GLL Neuron Inversion",
+            "Swapping Weights",
+            "Delayer",
+            "Flooding",
         }
-        
+
         # Handle attack parameter which can be either a string or a list
         if isinstance(attack, list):
             if not attack:  # Empty list
@@ -261,9 +275,9 @@ class Scenario:
             raise ValueError(f"Invalid attack type: {attack}")
 
         # Validate percentage parameters
-        poisoned_node_percent = validate_percentage(poisoned_node_percent, "poisoned_node_percent")
-        poisoned_sample_percent = validate_percentage(poisoned_sample_percent, "poisoned_sample_percent")
-        poisoned_noise_percent = validate_percentage(poisoned_noise_percent, "poisoned_noise_percent")
+        poisoned_node_percent = Scenario.validate_percentage(poisoned_node_percent, "poisoned_node_percent")
+        poisoned_sample_percent = Scenario.validate_percentage(poisoned_sample_percent, "poisoned_sample_percent")
+        poisoned_noise_percent = Scenario.validate_percentage(poisoned_noise_percent, "poisoned_noise_percent")
 
         nodes_index = []
         # Get the nodes index
@@ -300,82 +314,80 @@ class Scenario:
             node_att = "No Attack"
             malicious = False
             with_reputation = self.with_reputation
-            
+
             if node in attacked_nodes or nodes[node]["malicious"]:
                 malicious = True
                 with_reputation = False
                 node_att = attack
                 logging.info(f"Node {node} marked as malicious with attack {attack}")
-                
+
                 # Initialize attack parameters with defaults
                 attack_params = attack_params.copy() if attack_params else {}
-                
+
                 # Set attack-specific parameters
                 if attack == "Label Flipping":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
                     attack_params["poisonedSamplePercent"] = poisoned_sample_percent
                     attack_params["targeted"] = attack_params.get("targeted", False)
                     if attack_params["targeted"]:
-                        attack_params["targetLabel"] = validate_positive_int(
+                        attack_params["targetLabel"] = Scenario.validate_positive_int(
                             attack_params.get("targetLabel", 4), "targetLabel"
                         )
-                        attack_params["targetChangedLabel"] = validate_positive_int(
+                        attack_params["targetChangedLabel"] = Scenario.validate_positive_int(
                             attack_params.get("targetChangedLabel", 7), "targetChangedLabel"
                         )
-                
+
                 elif attack == "Sample Poisoning":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
                     attack_params["poisonedSamplePercent"] = poisoned_sample_percent
                     attack_params["poisonedNoisePercent"] = poisoned_noise_percent
                     attack_params["noiseType"] = attack_params.get("noiseType", "Salt")
                     attack_params["targeted"] = attack_params.get("targeted", False)
-                
+
                 elif attack == "Model Poisoning":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
                     attack_params["poisonedNoisePercent"] = poisoned_noise_percent
                     attack_params["noiseType"] = attack_params.get("noiseType", "Salt")
-                
+
                 elif attack == "GLL Neuron Inversion":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
-                
+
                 elif attack == "Swapping Weights":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
-                    attack_params["layerIdx"] = validate_positive_int(
+                    attack_params["layerIdx"] = Scenario.validate_positive_int(
                         attack_params.get("layerIdx", 0), "layerIdx"
                     )
-                
+
                 elif attack == "Delayer":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
-                    attack_params["delay"] = validate_positive_int(
-                        attack_params.get("delay", 10), "delay"
-                    )
-                    attack_params["targetPercentage"] = validate_percentage(
+                    attack_params["delay"] = Scenario.validate_positive_int(attack_params.get("delay", 10), "delay")
+                    attack_params["targetPercentage"] = Scenario.validate_percentage(
                         attack_params.get("targetPercentage", 100), "targetPercentage"
                     )
-                    attack_params["selectionInterval"] = validate_positive_int(
+                    attack_params["selectionInterval"] = Scenario.validate_positive_int(
                         attack_params.get("selectionInterval", 1), "selectionInterval"
                     )
-                
+
                 elif attack == "Flooding":
                     attack_params["poisonedNodePercent"] = poisoned_node_percent
-                    attack_params["floodingFactor"] = validate_positive_int(
+                    attack_params["floodingFactor"] = Scenario.validate_positive_int(
                         attack_params.get("floodingFactor", 100), "floodingFactor"
                     )
-                    attack_params["targetPercentage"] = validate_percentage(
+                    attack_params["targetPercentage"] = Scenario.validate_percentage(
                         attack_params.get("targetPercentage", 100), "targetPercentage"
                     )
-                    attack_params["selectionInterval"] = validate_positive_int(
+                    attack_params["selectionInterval"] = Scenario.validate_positive_int(
                         attack_params.get("selectionInterval", 1), "selectionInterval"
                     )
-                
+
                 # Add common attack parameters
-                attack_params["startRound"] = validate_positive_int(
+                attack_params["startRound"] = Scenario.validate_positive_int(
                     attack_params.get("startRound", 1), "startRound"
                 )
-                attack_params["stopRound"] = validate_positive_int(
+                attack_params["stopRound"] = Scenario.validate_positive_int(
                     attack_params.get("stopRound", 10), "stopRound"
                 )
-                attack_params["attackInterval"] = validate_positive_int(
+                attack_params["attackInterval"] = Scenario.validate_positive_int(
                     attack_params.get("attackInterval", 1), "attackInterval"
                 )
 
@@ -390,17 +402,13 @@ class Scenario:
 
             # Ensure the attack type is properly set in the node configuration
             if malicious and attack != "No Attack":
-                nodes[node]["adversarial_args"] = {
-                    "attacks": attack,
-                    "attack_params": attack_params
-                }
+                nodes[node]["adversarial_args"] = {"attacks": attack, "attack_params": attack_params}
             else:
-                nodes[node]["adversarial_args"] = {
-                    "attacks": "No Attack",
-                    "attack_params": {}
-                }
+                nodes[node]["adversarial_args"] = {"attacks": "No Attack", "attack_params": {}}
 
-            logging.info(f"Node {node} final configuration - malicious: {nodes[node]['malicious']}, attack: {nodes[node]['attacks']}")
+            logging.info(
+                f"Node {node} final configuration - malicious: {nodes[node]['malicious']}, attack: {nodes[node]['attacks']}"
+            )
 
         return nodes
 
@@ -422,6 +430,76 @@ class Scenario:
             if node in mobile_nodes:
                 node_mob = True
             nodes[node]["mobility"] = node_mob
+        return nodes
+
+    def leaving_node_assign(self, nodes, federation, unlearning_method, leaving_node_percent, departure_round):
+        """Identify which nodes will be leaving"""
+
+        # Validate unlearning method
+        valid_methods = {
+            "Basic Retraining",
+            "Knowledge Distillation",
+            "Gradient Ascent",
+        }
+
+        if not isinstance(unlearning_method, str):
+            logging.info(f"Invalid unlearning type: {unlearning_method}. Expected string.")
+            raise ValueError(f"Invalid unlearning type: {unlearning_method}. Expected string.")
+
+        if unlearning_method not in valid_methods:
+            logging.info(f"Invalid unlearning method: {unlearning_method}")
+            raise ValueError(f"Invalid unlearning method: {unlearning_method}")
+
+        # Validate parameters
+        leaving_node_percent = Scenario.validate_percentage(leaving_node_percent, "leaving_node_percent")
+
+        departure_round = Scenario.validate_positive_int(departure_round, "departure_round")
+        if departure_round >= self.rounds:
+            raise ValueError("Leaving round must be less than total rounds")
+
+        nodes_index = []
+        # Get the nodes index
+        if federation == "DFL":
+            nodes_index = list(nodes.keys())
+        else:
+            for node in nodes:
+                if nodes[node]["role"] != "server":
+                    nodes_index.append(node)
+
+        logging.info(f"Nodes index: {nodes_index}")
+        logging.info(f"Unlearning method: {unlearning_method}")
+        logging.info(f"Leaving node percent: {leaving_node_percent}")
+
+        leaving_nodes = []
+
+        n_nodes = len(nodes_index)
+        # Number of leaving nodes, round up
+        num_leaving = int(math.ceil(leaving_node_percent / 100 * n_nodes))
+        if num_leaving > n_nodes:
+            num_leaving = n_nodes
+
+        # Get the index of leaving nodes
+        leaving_nodes = random.sample(nodes_index, num_leaving)
+        logging.info(f"Number of nodes to leave: {num_leaving}")
+        logging.info(f"Leaving nodes: {leaving_nodes}")
+
+        # Assign the role of each node
+        for node in nodes:
+            if node in leaving_nodes:
+                leaving = True
+                logging.info(f"Node {node} marked as leaving with method {unlearning_method}")
+            else:
+                leaving = False
+
+            nodes[node]["leaving"] = leaving
+            nodes[node]["unlearning_method"] = unlearning_method
+            nodes[node]["departure_round"] = departure_round
+
+            if num_leaving > 0:
+                logging.info(
+                    f"Node {node} final configuration - leaving: {nodes[node]['leaving']}, unlearning method: {nodes[node]['unlearning_method']}"
+                )
+
         return nodes
 
     @classmethod
@@ -507,6 +585,14 @@ class ScenarioManagement:
         else:
             self.scenario.nodes = self.scenario.mobility_assign(self.scenario.nodes, 0)
 
+        self.scenario.nodes = self.scenario.leaving_node_assign(
+            self.scenario.nodes,
+            self.scenario.federation,
+            self.scenario.unlearning_method,
+            int(self.scenario.leaving_node_percent),
+            int(self.scenario.departure_round),
+        )
+
         # Save node settings
         for node in self.scenario.nodes:
             node_config = self.scenario.nodes[node]
@@ -581,6 +667,10 @@ class ScenarioManagement:
                         "sa_network": {"neighbor_policy": self.scenario.sar_neighbor_policy, "verbose": True},
                     },
                 }
+
+            participant_config["unlearning_args"]["leaving"] = node_config["leaving"]
+            participant_config["unlearning_args"]["unlearning_method"] = node_config["unlearning_method"]
+            participant_config["unlearning_args"]["departure_round"] = node_config["departure_round"]
 
             with open(participant_file, "w") as f:
                 json.dump(participant_config, f, sort_keys=False, indent=2)
@@ -1040,14 +1130,16 @@ class ScenarioManagement:
             i += 1
 
     def start_nodes_process(self):
-        self.processes_root_path = os.path.join(os.path.dirname(__file__),"..", "..")
+        self.processes_root_path = os.path.join(os.path.dirname(__file__), "..", "..")
         logging.info("Starting nodes as processes...")
         logging.info(f"env path: {self.env_path}")
 
         # Include additional config to the participants
         for idx, node in enumerate(self.config.participants):
             node["tracking_args"]["log_dir"] = os.path.join(self.processes_root_path, "app", "logs")
-            node["tracking_args"]["config_dir"] = os.path.join(self.processes_root_path, "app", "config", self.scenario_name)
+            node["tracking_args"]["config_dir"] = os.path.join(
+                self.processes_root_path, "app", "config", self.scenario_name
+            )
             node["scenario_args"]["controller"] = self.controller
             node["scenario_args"]["deployment"] = self.scenario.deployment
             node["security_args"]["certfile"] = os.path.join(
@@ -1120,13 +1212,17 @@ class ScenarioManagement:
 
                 commands += 'echo "All nodes started. PIDs stored in $PID_FILE"\n'
 
-                with open(f"{self.processes_root_path}/app/config/{self.scenario_name}/current_scenario_commands.sh", "w") as f:
+                with open(
+                    f"{self.processes_root_path}/app/config/{self.scenario_name}/current_scenario_commands.sh", "w"
+                ) as f:
                     f.write(commands)
-                os.chmod(f"{self.processes_root_path}/app/config/{self.scenario_name}/current_scenario_commands.sh", 0o755)
+                os.chmod(
+                    f"{self.processes_root_path}/app/config/{self.scenario_name}/current_scenario_commands.sh", 0o755
+                )
 
         except Exception as e:
             raise Exception(f"Error starting nodes as processes: {e}")
-        
+
     def start_nodes_physical(self):
         logging.info("Starting nodes as physical devices...")
         logging.info(f"env path: {self.env_path}")
@@ -1134,7 +1230,9 @@ class ScenarioManagement:
         for idx, node in enumerate(self.config.participants):
             pass
 
-        logging.info("Physical devices deployment is not implemented publicly. Please use docker or process deployment.")
+        logging.info(
+            "Physical devices deployment is not implemented publicly. Please use docker or process deployment."
+        )
 
     @classmethod
     def remove_files_by_scenario(cls, scenario_name):

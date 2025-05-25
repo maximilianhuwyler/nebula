@@ -13,7 +13,8 @@ const HelpContent = (function() {
             'partitionMethodsHelpIcon': partitionMethods,
             'parameterSettingHelpIcon': parameterSetting,
             'modelHelpIcon': model,
-            'maliciousHelpIcon': malicious
+            'maliciousHelpIcon': malicious,
+            'unlearningHelpIcon': unlearning,
         };
 
         Object.entries(tooltipElements).forEach(([id, content]) => {
@@ -131,6 +132,15 @@ const HelpContent = (function() {
         <ul style="margin-bottom: 0;">
             <li><strong>Percentage:</strong> Set percentage of malicious nodes</li>
             <li><strong>Manual:</strong> Select malicious nodes in the graph</li>
+        </ul>
+    </div>`;
+
+    const unlearning = `<div style="text-align: left;">
+        <strong>Unlearning Methods</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Basic Retraining: The model is retrained from scratch</li>
+            <li>Knowledge Distilation: A Student model mimics a teacher model on retained data.</li>
+            <li>Gradient Ascent: Projected gradient ascent is applied to the model.</li>
         </ul>
     </div>`;
 

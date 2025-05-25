@@ -444,6 +444,7 @@
                 </div>
             </div>
             <div id="expert-container" class="col-md-12 " style="display: none">
+                <!-- Participants -->
                 <div class="form-group row container-shadow tiny grey">
                     <h5 class="step-number">Participants <i class="fa fa-users"></i>
                     </h5>
@@ -853,6 +854,35 @@
                                 <option>Fully</option>
                             </select>
                         </div>
+                    </div>
+                </div>
+                <!-- Unlearning -->
+                <div class="form-group row container-shadow tiny grey">
+                    <h5 class="step-number">Unlearning <i class="fa fa-remove"></i>
+                    </h5>
+                    <h5 class="step-title">Unlearning method</h5>
+                    <div class="form-check form-check-inline">
+                        <select class="form-control" id="unlearningMethod" name="unlearning"
+                            style="display: inline; width: 50%">
+                            <option>Basic Retraining</option>
+                            <option>Knowledge Distillation</option>
+                            <option>Gradient Ascent</option>
+                        </select>
+                        <small id="unlearningHelp" class="form-text text-muted">
+                            <i id="unlearningHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                        </small>
+                    </div>
+                    <div>
+                        <h5 class="step-title">Leaving participants (%)</h5>
+                        <input type="range" class="form-range" id="leavingNodePercentInput" min="0" max="100" value="0"
+                            style="width: 30%; display: inline">
+                        <input type="number" class="form-control" id="leavingNodePercentValue" min="0" max="100" value="0"
+                            style="display:inline; width: 20%">
+                    </div>
+                    <h5 class="step-title">Departure round</h5>
+                    <div class="form-check form-check-inline">
+                        <input type="number" class="form-control" id="departureRound" min="0" value="5"
+                            style="display: inline; width: 50%">
                     </div>
                 </div>
             </div>

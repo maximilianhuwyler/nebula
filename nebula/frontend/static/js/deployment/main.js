@@ -6,6 +6,7 @@ import MobilityManager from './mobility.js';
 import ReputationManager from './reputation.js';
 import SaManager from './situational-awareness.js';
 import GraphSettings from './graph-settings.js';
+import UnlearningManager from './unlearning.js';
 import Utils from './utils.js';
 
 const DeploymentManager = (function() {
@@ -30,6 +31,7 @@ const DeploymentManager = (function() {
         ReputationManager.initializeReputationSystem();
         SaManager.initializeSa();
         GraphSettings.initializeDistanceControls();
+        UnlearningManager.initializeEventListeners();
 
         // Make modules globally available
         window.ScenarioManager = ScenarioManager;
@@ -40,6 +42,7 @@ const DeploymentManager = (function() {
         window.SaManager = SaManager;
         window.GraphSettings = GraphSettings;
         window.DeploymentManager = DeploymentManager;
+        window.UnlearningManager = UnlearningManager;
         window.Utils = Utils;
     }
 

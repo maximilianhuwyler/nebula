@@ -136,7 +136,10 @@ const ScenarioManager = (function() {
             additional_participants: window.MobilityManager.getMobilityConfig().additionalParticipants || [],
             schema_additional_participants: document.getElementById("schemaAdditionalParticipantsSelect").value || "random",
             accelerator: "cpu",
-            gpu_id: []
+            gpu_id: [],
+            unlearning_method: window.UnlearningManager.getUnlearningConfig().method || "Basic Retraining",
+            leaving_node_percent: window.UnlearningManager.getUnlearningConfig().leavingNodePercent || 0,
+            departure_round: window.UnlearningManager.getUnlearningConfig().departureRound || 5,
         };
     }
 
@@ -244,6 +247,12 @@ const ScenarioManager = (function() {
             });
         }
 
+        // Load unlearning config
+        document.getElementById("unlearningMethod").value = scenario.unlearning_method;
+        document.getElementById("leavingNodePercentInput").value = scenario.leaving_node_percent;
+        document.getElementById("leavingNodePercentValue").value = scenario.leaving_node_percent;
+        document.getElementById("departureRound").value = scenario.departure_round;
+
         // Trigger necessary events
         document.getElementById("federationArchitecture").dispatchEvent(new Event('change'));
         document.getElementById("datasetSelect").dispatchEvent(new Event('change'));
@@ -343,6 +352,9 @@ const ScenarioManager = (function() {
         }
         if (window.SaManager) {
             window.SaManager.resetSaConfig();
+        }
+        if (window.UnlearningManager) {
+            window.UnlearningManager.resetUnlearningConfig();
         }
 
         // Trigger necessary events

@@ -73,6 +73,11 @@
       "scheme": "random"
     }
   },
+  "unlearning_args": {
+    "leaving": false,
+    "unlearning_method": "Basic Retraining",
+    "departure_round": 5
+  },
   "data_args": {
     "dataset": "MNIST",
     "iid": false,
