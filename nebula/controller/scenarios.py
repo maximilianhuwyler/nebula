@@ -91,8 +91,8 @@ class Scenario:
         sar_arbitration_policy,
         sar_neighbor_policy,
         unlearning_method,
-        leaving_node_percent,
-        departure_round,
+        unlearning_node_percent,
+        unlearning_round,
     ):
         """
         Initialize the scenario.
@@ -156,8 +156,8 @@ class Scenario:
             sar_arbitration_policy (str) :
             sar_neighbor_policy (str) :
             unlearning_method (str): Method for unlearning.
-            leaving_node_percent (float): Percentage of nodes that will leave.
-            departure_round (int): Round in which nodes will leave.
+            unlearning_node_percent (float): Percentage of nodes that will leave.
+            unlearning_round (int): Round in which nodes will leave.
         """
         self.scenario_title = scenario_title
         self.scenario_description = scenario_description
@@ -215,8 +215,8 @@ class Scenario:
         self.sar_arbitration_policy = sar_arbitration_policy
         self.sar_neighbor_policy = sar_neighbor_policy
         self.unlearning_method = unlearning_method
-        self.leaving_node_percent = leaving_node_percent
-        self.departure_round = departure_round
+        self.unlearning_node_percent = unlearning_node_percent
+        self.unlearning_round = unlearning_round
 
     @staticmethod
     def validate_percentage(value, name):
@@ -432,8 +432,14 @@ class Scenario:
             nodes[node]["mobility"] = node_mob
         return nodes
 
-    def leaving_node_assign(self, nodes, federation, unlearning_method, leaving_node_percent, departure_round):
-        """Identify which nodes will be leaving"""
+    def unlearning_node_assign(
+            self,
+            nodes,
+            federation,
+            unlearning_method,
+            unlearning_node_percent,
+            unlearning_round):
+        """Identify which nodes will be unlearning"""
 
         # Validate unlearning method
         valid_methods = {
@@ -451,11 +457,11 @@ class Scenario:
             raise ValueError(f"Invalid unlearning method: {unlearning_method}")
 
         # Validate parameters
-        leaving_node_percent = Scenario.validate_percentage(leaving_node_percent, "leaving_node_percent")
+        unlearning_node_percent = Scenario.validate_percentage(unlearning_node_percent, "unlearning_node_percent")
 
-        departure_round = Scenario.validate_positive_int(departure_round, "departure_round")
-        if departure_round >= self.rounds:
-            raise ValueError("Leaving round must be less than total rounds")
+        unlearning_round = Scenario.validate_positive_int(unlearning_round, "unlearning_round")
+        if unlearning_round >= self.rounds:
+            raise ValueError("Unlearning round must be less than total rounds")
 
         nodes_index = []
         # Get the nodes index
@@ -468,37 +474,29 @@ class Scenario:
 
         logging.info(f"Nodes index: {nodes_index}")
         logging.info(f"Unlearning method: {unlearning_method}")
-        logging.info(f"Leaving node percent: {leaving_node_percent}")
+        logging.info(f"Unlearning node percent: {unlearning_node_percent}")
 
-        leaving_nodes = []
+        unlearning_nodes = []
 
         n_nodes = len(nodes_index)
-        # Number of leaving nodes, round up
-        num_leaving = int(math.ceil(leaving_node_percent / 100 * n_nodes))
-        if num_leaving > n_nodes:
-            num_leaving = n_nodes
+        # Number of unlearning nodes, round up
+        num_unlearning = int(math.ceil(unlearning_node_percent / 100 * n_nodes))
+        if num_unlearning > n_nodes:
+            num_unlearning = n_nodes
 
-        # Get the index of leaving nodes
-        leaving_nodes = random.sample(nodes_index, num_leaving)
-        logging.info(f"Number of nodes to leave: {num_leaving}")
-        logging.info(f"Leaving nodes: {leaving_nodes}")
+        # Get the index of unlearning nodes
+        unlearning_nodes = random.sample(nodes_index, num_unlearning)
+        logging.info(f"Number of nodes to leave: {num_unlearning}")
+        logging.info(f"Unlearning nodes: {unlearning_nodes}")
 
         # Assign the role of each node
         for node in nodes:
-            if node in leaving_nodes:
-                leaving = True
-                logging.info(f"Node {node} marked as leaving with method {unlearning_method}")
-            else:
-                leaving = False
+            if node in unlearning_nodes:
+                logging.info(f"Node {node} marked for unlearning with method {unlearning_method}")
 
-            nodes[node]["leaving"] = leaving
+            nodes[node]["unlearning_nodes"] = unlearning_nodes
             nodes[node]["unlearning_method"] = unlearning_method
-            nodes[node]["departure_round"] = departure_round
-
-            if num_leaving > 0:
-                logging.info(
-                    f"Node {node} final configuration - leaving: {nodes[node]['leaving']}, unlearning method: {nodes[node]['unlearning_method']}"
-                )
+            nodes[node]["unlearning_round"] = unlearning_round
 
         return nodes
 
@@ -585,12 +583,12 @@ class ScenarioManagement:
         else:
             self.scenario.nodes = self.scenario.mobility_assign(self.scenario.nodes, 0)
 
-        self.scenario.nodes = self.scenario.leaving_node_assign(
+        self.scenario.nodes = self.scenario.unlearning_node_assign(
             self.scenario.nodes,
             self.scenario.federation,
             self.scenario.unlearning_method,
-            int(self.scenario.leaving_node_percent),
-            int(self.scenario.departure_round),
+            int(self.scenario.unlearning_node_percent),
+            int(self.scenario.unlearning_round),
         )
 
         # Save node settings
@@ -668,9 +666,9 @@ class ScenarioManagement:
                     },
                 }
 
-            participant_config["unlearning_args"]["leaving"] = node_config["leaving"]
+            participant_config["unlearning_args"]["unlearning_nodes"] = node_config["unlearning_nodes"]
             participant_config["unlearning_args"]["unlearning_method"] = node_config["unlearning_method"]
-            participant_config["unlearning_args"]["departure_round"] = node_config["departure_round"]
+            participant_config["unlearning_args"]["unlearning_round"] = node_config["unlearning_round"]
 
             with open(participant_file, "w") as f:
                 json.dump(participant_config, f, sort_keys=False, indent=2)

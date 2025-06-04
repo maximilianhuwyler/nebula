@@ -8,39 +8,39 @@ const UnlearningManager = (function() {
 
     const Config = {
         method: UNLEARNING_METHODS.BASIC_RETRAINING,
-        leavingNodePercent: 0,
-        departureRound: 5,
+        unlearningNodePercent: 0,
+        unlearningRound: 5,
     };
 
     function initializeEventListeners() {
         const unlearningMethod = document.getElementById('unlearningMethod');
-        const leavingNodePercentInput = document.getElementById('leavingNodePercentInput');
-        const leavingNodePercentValue = document.getElementById('leavingNodePercentValue');
-        const departureRound = document.getElementById('departureRound');
+        const unlearningNodePercentInput = document.getElementById('unlearningNodePercentInput');
+        const unlearningNodePercentValue = document.getElementById('unlearningNodePercentValue');
+        const unlearningRound = document.getElementById('unlearningRound');
         const rounds = document.getElementById('rounds');
 
         unlearningMethod.addEventListener('change', function() {
             Config.method = unlearningMethod.value;
         });
 
-        leavingNodePercentInput.addEventListener('change', function() {
-            leavingNodePercentValue.value = leavingNodePercentInput.value;
-            Config.leavingNodePercent = leavingNodePercentInput.value;
+        unlearningNodePercentInput.addEventListener('change', function() {
+            unlearningNodePercentValue.value = unlearningNodePercentInput.value;
+            Config.unlearningNodePercent = unlearningNodePercentInput.value;
         });
 
-        leavingNodePercentValue.addEventListener('change', function() {
-            leavingNodePercentInput.value = leavingNodePercentValue.value;
-            Config.leavingNodePercent = leavingNodePercentValue.value;
+        unlearningNodePercentValue.addEventListener('change', function() {
+            unlearningNodePercentInput.value = unlearningNodePercentValue.value;
+            Config.unlearningNodePercent = unlearningNodePercentValue.value;
         });
 
-        departureRound.addEventListener('change', function() {
-            departureRound.value = Math.min(Number(departureRound.value), Number(rounds.value) - 1);
-            Config.departureRound = departureRound.value;
+        unlearningRound.addEventListener('change', function() {
+            unlearningRound.value = Math.min(Number(unlearningRound.value), Number(rounds.value) - 1);
+            Config.unlearningRound = unlearningRound.value;
         });
 
         rounds.addEventListener('change', function() {
-            departureRound.value = Math.max(0, Math.min(Number(departureRound.value), Number(rounds.value) - 1));
-            Config.departureRound = departureRound.value;
+            unlearningRound.value = Math.max(0, Math.min(Number(unlearningRound.value), Number(rounds.value) - 1));
+            Config.unlearningRound = unlearningRound.value;
         });
     }
 
@@ -48,12 +48,12 @@ const UnlearningManager = (function() {
         Config.method = UNLEARNING_METHODS.BASIC_RETRAINING;
         document.getElementById("unlearningMethod").value = Config.method;
 
-        Config.leavingNodePercent = 0;
-        document.getElementById("leavingNodePercentInput").value = Config.leavingNodePercent;
-        document.getElementById("leavingNodePercentValue").value = Config.leavingNodePercent;
+        Config.unlearningNodePercent = 0;
+        document.getElementById("unlearningNodePercentInput").value = Config.unlearningNodePercent;
+        document.getElementById("unlearningNodePercentValue").value = Config.unlearningNodePercent;
 
-        Config.departureRound = 5;
-        document.getElementById("departureRound").value = Config.departureRound;
+        Config.unlearningRound = 5;
+        document.getElementById("unlearningRound").value = Config.unlearningRound;
     }
 
     return {

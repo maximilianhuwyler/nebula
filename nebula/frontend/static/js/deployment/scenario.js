@@ -138,8 +138,8 @@ const ScenarioManager = (function() {
             accelerator: "cpu",
             gpu_id: [],
             unlearning_method: window.UnlearningManager.getUnlearningConfig().method || "Basic Retraining",
-            leaving_node_percent: window.UnlearningManager.getUnlearningConfig().leavingNodePercent || 0,
-            departure_round: window.UnlearningManager.getUnlearningConfig().departureRound || 5,
+            unlearning_node_percent: window.UnlearningManager.getUnlearningConfig().unlearningNodePercent || 0,
+            unlearning_round: window.UnlearningManager.getUnlearningConfig().unlearningRound || 5,
         };
     }
 
@@ -249,9 +249,9 @@ const ScenarioManager = (function() {
 
         // Load unlearning config
         document.getElementById("unlearningMethod").value = scenario.unlearning_method;
-        document.getElementById("leavingNodePercentInput").value = scenario.leaving_node_percent;
-        document.getElementById("leavingNodePercentValue").value = scenario.leaving_node_percent;
-        document.getElementById("departureRound").value = scenario.departure_round;
+        document.getElementById("unlearningNodePercentInput").value = scenario.unlearning_node_percent;
+        document.getElementById("unlearningNodePercentValue").value = scenario.unlearning_node_percent;
+        document.getElementById("unlearningRound").value = scenario.unlearning_round;
 
         // Trigger necessary events
         document.getElementById("federationArchitecture").dispatchEvent(new Event('change'));

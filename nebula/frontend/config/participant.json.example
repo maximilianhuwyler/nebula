@@ -74,9 +74,9 @@
     }
   },
   "unlearning_args": {
-    "leaving": false,
+    "unlearning_nodes": [],
     "unlearning_method": "Basic Retraining",
-    "departure_round": 5
+    "unlearning_round": 5
   },
   "data_args": {
     "dataset": "MNIST",
