@@ -124,6 +124,7 @@ class Lightning:
     def __init__(self, model, datamodule, config=None):
         # self.model = torch.compile(model, mode="reduce-overhead")
         self.model = model
+        self.init_mode_state_dict = copy.deepcopy(model.state_dict())
         self.datamodule = datamodule
         self.config = config
         self._trainer = None
@@ -364,3 +365,23 @@ class Lightning:
 
     def show_current_learning_rate(self):
         self.model.show_current_learning_rate()
+
+    def reset_model_parameters(self):
+        """Reset the model parameters to the initial state."""
+        logging.info("START START START Model parameters reset to initial state.")
+        self.set_model_parameters(self.init_mode_state_dict, initialize=True)
+        logging.info("END END END Model parameters reset to initial state.")
+
+    # def distill_knowledge(self):
+    #     """Distill knowledge from the current model to the initial model."""
+    #     logging.info("START START START Distilling knowledge from current model to initial model.")
+    #     self.model.distill_knowledge(self.init_mode_state_dict)
+    #     # we have our original model
+    #     # we save the initial weights and learning rate
+    #     # extract the current logits from the model on training
+    #     # model.forward...
+    #     # train our model now a few times with the same training
+    #     # BUT we simply change the loss function
+    #     # run training for 3 rounds
+
+    #     logging.info("END END END Distilling knowledge from current model to initial model.")

@@ -554,11 +554,36 @@ class Engine:
                 indent=2,
                 title="Round information",
             )
+            
+            unlearning_round = self.config.participant["unlearning_args"]["unlearning_round"]
+            is_unlearning_round = self.round == unlearning_round
+            unlearning_happened = self.round > unlearning_round
+            unlearning_nodes = self.config.participant["unlearning_args"]["unlearning_nodes"]
+            is_unlearning_node = str(self.idx) in unlearning_nodes
+            logging.info(f"Is {str(self.idx)} in {unlearning_nodes}, answer : {is_unlearning_node}")
+            has_left = is_unlearning_node and unlearning_happened
+            has_not_left = not has_left
+
             logging.info(f"Federation nodes: {self.federation_nodes}")
             await self.update_federation_nodes(
                 await self.cm.get_addrs_current_connections(only_direct=True, myself=True)
             )
+
+            logging.info(f"My own node id: {self.idx} and name: {self.name}")
+
             expected_nodes = await self.get_federation_nodes()
+
+            if is_unlearning_round or unlearning_happened:
+                if is_unlearning_node:
+                    logging.info(f"Unlearning node {self.idx} with address {self.addr}")
+                    logging.info(f"removed from {expected_nodes}")
+                    expected_nodes.discard(self.addr)
+                for addr, conn in self.cm.connections.items():
+                    node_id = getattr(conn, "id", None)
+                    if node_id in unlearning_nodes:
+                        expected_nodes.discard(addr)
+                        logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes")
+
             rse = RoundStartEvent(self.round, current_time, expected_nodes)
             await EventManager.get_instance().publish_node_event(rse)
             self.trainer.on_round_start()
@@ -568,7 +593,14 @@ class Engine:
             logging.info(f"Direct connections: {direct_connections} | Undirected connections: {undirected_connections}")
             logging.info(f"[Role {self.role}] Starting learning cycle...")
             await self.aggregator.update_federation_nodes(expected_nodes)
-            await self._extended_learning_cycle()
+
+            if is_unlearning_round:
+                await self._unlearning_cycle()
+
+            if is_unlearning_node and (is_unlearning_round or unlearning_happened):
+                await self._after_unlearning_cycle()
+            else:
+                await self._extended_learning_cycle()
 
             current_time = time.time()
             ree = RoundEndEvent(self.round, current_time)
@@ -622,6 +654,18 @@ class Engine:
         """
         This method is called in each round of the learning cycle. It is used to extend the learning cycle with additional
         functionalities. The method is called in the _learning_cycle method.
+        """
+        pass
+
+    async def _unlearning_cycle(self):
+        """
+        MHTODO describe
+        """
+        pass
+
+    async def _after_unlearning_cycle(self):
+        """
+        MHTODO describe
         """
         pass
 
@@ -692,6 +736,15 @@ class AggregatorNode(Engine):
         await self.cm.propagator.propagate("stable")
         await self._waiting_model_updates()
 
+    async def _unlearning_cycle(self):
+        self.trainer.reset_model_parameters()
+        logging.info("Reset model parameters for unlearning")
+
+    async def _after_unlearning_cycle(self):
+        logging.info("AFTER UNLEARNING OF AGGREGATOR")
+        await self.trainer.test()
+        await self._waiting_model_updates()
+
 
 class ServerNode(Engine):
     def __init__(
@@ -753,6 +806,16 @@ class TrainerNode(Engine):
         await EventManager.get_instance().publish_node_event(self_update_event)
 
         await self.cm.propagator.propagate("stable")
+        await self._waiting_model_updates()
+
+    async def _unlearning_cycle(self):
+        self.trainer.reset_model_parameters()
+        logging.info("Reset model parameters for unlearning")
+        await self._extended_learning_cycle()
+
+    async def _after_unlearning_cycle(self):
+        logging.info("AFTER UNLEARNING OF TRAINER")
+        await self.trainer.test()
         await self._waiting_model_updates()
 
 

@@ -71,7 +71,7 @@ class Config:
             exp_errors_file_handler,
         ) = self.__setup_logging(self.log_filename)
 
-        level = logging.DEBUG if self.participant["device_args"]["logging"] else logging.CRITICAL
+        level = logging.DEBUG
         logging.basicConfig(
             level=level,
             handlers=[
@@ -94,19 +94,19 @@ class Config:
         console_handler.setFormatter(Formatter(log_console_format))
 
         file_handler = FileHandler(f"{log_filename}.log", mode="w", encoding="utf-8")
-        file_handler.setLevel(logging.INFO if self.participant["device_args"]["logging"] else logging.CRITICAL)
+        file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(Formatter(info_file_format))
 
         file_handler_only_debug = FileHandler(f"{log_filename}_debug.log", mode="w", encoding="utf-8")
         file_handler_only_debug.setLevel(
-            logging.DEBUG if self.participant["device_args"]["logging"] else logging.CRITICAL
+            logging.DEBUG
         )
         file_handler_only_debug.addFilter(lambda record: record.levelno == logging.DEBUG)
         file_handler_only_debug.setFormatter(Formatter(debug_file_format))
 
         exp_errors_file_handler = FileHandler(f"{log_filename}_error.log", mode="w", encoding="utf-8")
         exp_errors_file_handler.setLevel(
-            logging.WARNING if self.participant["device_args"]["logging"] else logging.CRITICAL
+            logging.WARNING
         )
         exp_errors_file_handler.setFormatter(Formatter(debug_file_format))
 
@@ -123,7 +123,7 @@ class Config:
             f"%(asctime)s - {self.participant['device_args']['name']} - [%(filename)s:%(lineno)d] %(message)s"
         )
         log_console_format = f"{CYAN}%(asctime)s - {self.participant['device_args']['name']} - [%(filename)s:%(lineno)d]{RESET}\n%(message)s"
-        level = logging.DEBUG if self.participant["device_args"]["logging"] else logging.CRITICAL
+        level = logging.DEBUG
 
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.CRITICAL)

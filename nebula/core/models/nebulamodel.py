@@ -227,6 +227,23 @@ class NebulaModel(pl.LightningModule, ABC):
 
         self._current_loss = loss
         return loss
+    
+    # def step_KD(self, batch, batch_idx, phase):
+    #     x, y = batch
+    #     y_pred = self.forward(x)
+    #     teacher_logits = self.Teachermodel.forward(x)
+    #     # y_pred are logits and y are targets e.g. labels
+    #     standard_loss = self.criterion(y_pred, y)
+    #     temperature = 4.0  # example value
+    #     teacher_probs = F.softmax(teacher_logits / temperature, dim=1)
+    #     student_probs = F.log_softmax(y_pred / temperature, dim=1)
+    #     distillation_loss = self.distillation_criterion(teacher_probs, student_probs) * temperature**2
+    #     alpha = 0.5
+    #     loss = alpha * standard_loss + (1 - alpha) * distillation_loss
+    #     self.process_metrics(phase, y_pred, y, loss)
+
+    #     self._current_loss = loss
+    #     return loss
 
     def get_loss(self):
         return self._current_loss
