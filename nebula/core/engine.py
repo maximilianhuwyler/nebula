@@ -564,6 +564,10 @@ class Engine:
             has_left = is_unlearning_node and unlearning_happened
             has_not_left = not has_left
 
+            unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
+            logging.info(f"Unlearning method: {unlearning_method}")
+
+
             logging.info(f"Federation nodes: {self.federation_nodes}")
             await self.update_federation_nodes(
                 await self.cm.get_addrs_current_connections(only_direct=True, myself=True)
@@ -594,7 +598,7 @@ class Engine:
             logging.info(f"[Role {self.role}] Starting learning cycle...")
             await self.aggregator.update_federation_nodes(expected_nodes)
 
-            if is_unlearning_round:
+            if not is_unlearning_node and is_unlearning_round:
                 await self._unlearning_cycle()
 
             if is_unlearning_node and (is_unlearning_round or unlearning_happened):
@@ -737,8 +741,16 @@ class AggregatorNode(Engine):
         await self._waiting_model_updates()
 
     async def _unlearning_cycle(self):
-        self.trainer.reset_model_parameters()
-        logging.info("Reset model parameters for unlearning")
+        unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
+        logging.info(f"!!!!!!!!!!!!!!!Unlearning method!!!!!!!!!: {unlearning_method}")
+        if unlearning_method == 'Basic Retraining':
+            logging.info("Reset model parameters for unlearning")
+            await asyncio.to_thread(self.trainer.reset_model_parameters)
+        elif unlearning_method == 'Knowledge Distillation':
+            logging.info("Using knowledge distillation for unlearning")
+            await asyncio.to_thread(self.trainer.distill_knowledge)
+        else:
+            raise NotImplementedError()
 
     async def _after_unlearning_cycle(self):
         logging.info("AFTER UNLEARNING OF AGGREGATOR")
@@ -809,9 +821,16 @@ class TrainerNode(Engine):
         await self._waiting_model_updates()
 
     async def _unlearning_cycle(self):
-        self.trainer.reset_model_parameters()
-        logging.info("Reset model parameters for unlearning")
-        await self._extended_learning_cycle()
+        unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
+        logging.info(f"!!!!!!!!!!!!!!!Unlearning method!!!!!!!!!: {unlearning_method}")
+        if unlearning_method == 'Basic Retraining':
+            logging.info("Reset model parameters for unlearning")
+            await asyncio.to_thread(self.trainer.reset_model_parameters)
+        elif unlearning_method == 'Knowledge Distillation':
+            logging.info("Using knowledge distillation for unlearning")
+            await asyncio.to_thread(self.trainer.distill_knowledge)
+        else:
+            raise NotImplementedError()
 
     async def _after_unlearning_cycle(self):
         logging.info("AFTER UNLEARNING OF TRAINER")
