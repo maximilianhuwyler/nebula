@@ -366,34 +366,3 @@ class Lightning:
 
     def show_current_learning_rate(self):
         self.model.show_current_learning_rate()
-
-    def reset_model_parameters(self):
-        """Reset the model parameters to the initial state."""
-        logging.info("START START START Model parameters reset to initial state.")
-        # mhtodo reset learning rate etc.
-        self.set_model_parameters(self.init_mode_state_dict, initialize=True)
-        logging.info("END END END Model parameters reset to initial state.")
-
-    def distill_knowledge(self):
-        """Distill knowledge from the current model to the initial model."""
-        logging.info("START START START Distilling knowledge from current model to initial model.")
-
-        self.model.teacher = copy.deepcopy(self.model)
-        self.model.teacher.eval()
-        normal_step = self.model.step
-        self.model.step = types.MethodType(self.model.step_KD, self.model)
-        self.train()
-        self.train()
-        self.train()
-        self.model.step = normal_step
-        del self.model.teacher
-
-        # we have our original model
-        # we save the initial weights and learning rate
-        # extract the current logits from the model on training
-        # model.forward...
-        # train our model now a few times with the same training
-        # BUT we simply change the loss function
-        # run training for 3 rounds
-
-        logging.info("END END END Distilling knowledge from current model to initial model.")

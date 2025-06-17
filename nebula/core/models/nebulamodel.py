@@ -1,4 +1,3 @@
-import copy
 import logging
 from abc import ABC, abstractmethod
 
@@ -229,23 +228,35 @@ class NebulaModel(pl.LightningModule, ABC):
         self._current_loss = loss
         return loss
     
-    def step_KD(self, batch, batch_idx, phase):
+    def step_gradient_ascent(self, batch, batch_idx, phase):
+        x, y = batch
+        y_pred = self.forward(x)
+        loss = -self.criterion(y_pred, y)
+        self.process_metrics(phase, y_pred, y, loss)
+
+        self._current_loss = loss
+        return loss
+    
+    def step_knowledge_distillation(self, batch, batch_idx, phase):
         x, y = batch
         student_logits = self.forward(x)
-        with torch.no_grad():
-          teacher_logits = self.teacher.forward(x)
         standard_loss = self.criterion(student_logits, y)
-        temperature = 4.0
-        teacher_probs = torch.nn.functional.softmax(teacher_logits / temperature, dim=1)
-        student_probs = torch.nn.functional.log_softmax(student_logits / temperature, dim=1)
-        distillation_loss = torch.nn.functional.kl_div(teacher_probs, student_probs) * temperature**2
-        alpha = 0.5
-        loss = alpha * standard_loss + (1 - alpha) * distillation_loss
+
+        self.kd_teacher.eval()
+        with torch.no_grad():
+          teacher_logits = self.kd_teacher.forward(x)
+        assert teacher_logits.dim() == 2, f"Expected 2D logits, got shape {teacher_logits.shape}"
+        assert teacher_logits.shape[1] == self.num_classes, f"Second dim should be num_classes, got {teacher_logits.shape[1]}"
+        teacher_probs = torch.nn.functional.softmax(teacher_logits / self.kd_temperature, dim=1)
+        student_probs = torch.nn.functional.log_softmax(student_logits / self.kd_temperature, dim=1)
+        distillation_loss = torch.nn.functional.kl_div(teacher_probs, student_probs) * self.kd_temperature**2
+        loss = self.kd_alpha * standard_loss + (1 - self.kd_alpha) * distillation_loss
+
         self.process_metrics(phase, student_logits, y, loss)
 
         self._current_loss = loss
         return loss
-
+    
     def get_loss(self):
         return self._current_loss
 

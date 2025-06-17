@@ -35,6 +35,7 @@ import sys
 
 from nebula.config.config import Config
 from nebula.core.training.lightning import Lightning
+from nebula.core.unlearning.unlearningmanager import ExtendedState, UnlearningManager
 
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -114,6 +115,15 @@ class Engine:
         self._secure_neighbors = []
         self._is_malicious = self.config.participant["adversarial_args"]["attacks"] != "No Attack"
 
+        self.extended_state = ExtendedState.NORMAL
+        self.extended_handlers = {
+            ExtendedState.NORMAL: self._extended_learning_cycle,
+            ExtendedState.UNLEARNING: self._extended_unlearning_cycle,
+            ExtendedState.FINISHED: self._extended_unlearned_cycle,
+        }
+
+        self._um = UnlearningManager()#MHTODO
+
         msg = f"Trainer: {self._trainer.__class__.__name__}"
         msg += f"\nDataset: {self.config.participant['data_args']['dataset']}"
         msg += f"\nIID: {self.config.participant['data_args']['iid']}"
@@ -167,6 +177,10 @@ class Engine:
     @property
     def trainer(self):
         return self._trainer
+    
+    @property
+    def um(self):
+        return self._um
 
     @property
     def sa(self):
@@ -554,39 +568,14 @@ class Engine:
                 indent=2,
                 title="Round information",
             )
-            
-            unlearning_round = self.config.participant["unlearning_args"]["unlearning_round"]
-            is_unlearning_round = self.round == unlearning_round
-            unlearning_happened = self.round > unlearning_round
-            unlearning_nodes = self.config.participant["unlearning_args"]["unlearning_nodes"]
-            is_unlearning_node = str(self.idx) in unlearning_nodes
-            logging.info(f"Is {str(self.idx)} in {unlearning_nodes}, answer : {is_unlearning_node}")
-            has_left = is_unlearning_node and unlearning_happened
-            has_not_left = not has_left
-
-            unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
-            logging.info(f"Unlearning method: {unlearning_method}")
-
 
             logging.info(f"Federation nodes: {self.federation_nodes}")
             await self.update_federation_nodes(
                 await self.cm.get_addrs_current_connections(only_direct=True, myself=True)
             )
 
-            logging.info(f"My own node id: {self.idx} and name: {self.name}")
-
             expected_nodes = await self.get_federation_nodes()
-
-            if is_unlearning_round or unlearning_happened:
-                if is_unlearning_node:
-                    logging.info(f"Unlearning node {self.idx} with address {self.addr}")
-                    logging.info(f"removed from {expected_nodes}")
-                    expected_nodes.discard(self.addr)
-                for addr, conn in self.cm.connections.items():
-                    node_id = getattr(conn, "id", None)
-                    if node_id in unlearning_nodes:
-                        expected_nodes.discard(addr)
-                        logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes")
+            self.extended_state = await asyncio.to_thread(self.um.configure_round, self.round, expected_nodes)
 
             rse = RoundStartEvent(self.round, current_time, expected_nodes)
             await EventManager.get_instance().publish_node_event(rse)
@@ -597,14 +586,7 @@ class Engine:
             logging.info(f"Direct connections: {direct_connections} | Undirected connections: {undirected_connections}")
             logging.info(f"[Role {self.role}] Starting learning cycle...")
             await self.aggregator.update_federation_nodes(expected_nodes)
-
-            if not is_unlearning_node and is_unlearning_round:
-                await self._unlearning_cycle()
-
-            if is_unlearning_node and (is_unlearning_round or unlearning_happened):
-                await self._after_unlearning_cycle()
-            else:
-                await self._extended_learning_cycle()
+            await self._extend_cycle()
 
             current_time = time.time()
             ree = RoundEndEvent(self.round, current_time)
@@ -654,23 +636,16 @@ class Engine:
             except Exception as e:
                 print(f"Error stopping Docker container with ID {self.docker_id}: {e}")
 
+    async def _extend_cycle(self):
+        self.extended_handlers[self.extended_state]()
+
     async def _extended_learning_cycle(self):
-        """
-        This method is called in each round of the learning cycle. It is used to extend the learning cycle with additional
-        functionalities. The method is called in the _learning_cycle method.
-        """
         pass
 
-    async def _unlearning_cycle(self):
-        """
-        MHTODO describe
-        """
+    async def _extended_unlearning_cycle(self):
         pass
 
-    async def _after_unlearning_cycle(self):
-        """
-        MHTODO describe
-        """
+    async def _extended_unlearned_cycle(self):
         pass
 
 
@@ -693,6 +668,12 @@ class MaliciousNode(Engine):
         self.attack = create_attack(self)
         self.aggregator_bening = self._aggregator
 
+        self.role_handlers = {
+            "aggregator": AggregatorNode,
+            "trainer": TrainerNode,
+            "server": ServerNode,
+        }
+
     async def _extended_learning_cycle(self):
         try:
             await self.attack.attack()
@@ -700,12 +681,13 @@ class MaliciousNode(Engine):
             attack_name = self.config.participant["adversarial_args"]["attacks"]
             logging.exception(f"Attack {attack_name} failed")
 
-        if self.role == "aggregator":
-            await AggregatorNode._extended_learning_cycle(self)
-        if self.role == "trainer":
-            await TrainerNode._extended_learning_cycle(self)
-        if self.role == "server":
-            await ServerNode._extended_learning_cycle(self)
+        await self.role_handlers[self.role]._extended_learning_cycle(self)
+    
+    async def _extended_unlearning_cycle(self):
+        await self.role_handlers[self.role]._extended_unlearning_cycle(self)
+
+    async def _extended_unlearned_cycle(self):
+        await self.role_handlers[self.role]._extended_unlearned_cycle(self)
 
 
 class AggregatorNode(Engine):
@@ -740,20 +722,26 @@ class AggregatorNode(Engine):
         await self.cm.propagator.propagate("stable")
         await self._waiting_model_updates()
 
-    async def _unlearning_cycle(self):
-        unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
-        logging.info(f"!!!!!!!!!!!!!!!Unlearning method!!!!!!!!!: {unlearning_method}")
-        if unlearning_method == 'Basic Retraining':
-            logging.info("Reset model parameters for unlearning")
-            await asyncio.to_thread(self.trainer.reset_model_parameters)
-        elif unlearning_method == 'Knowledge Distillation':
-            logging.info("Using knowledge distillation for unlearning")
-            await asyncio.to_thread(self.trainer.distill_knowledge)
-        else:
-            raise NotImplementedError()
+    async def _extended_unlearning_cycle(self):
+        # Define the functionality of the aggregator node
+        await self.trainer.test()
+        await asyncio.to_thread(self.um.before_training)
+        await self.trainning_in_progress_lock.acquire_async()
+        await self.trainer.train()
+        await self.trainning_in_progress_lock.release_async()
+        await asyncio.to_thread(self.um.after_training)
 
-    async def _after_unlearning_cycle(self):
-        logging.info("AFTER UNLEARNING OF AGGREGATOR")
+        await asyncio.to_thread(self.um.before_publishing)
+        self_update_event = UpdateReceivedEvent(
+            self.trainer.get_model_parameters(), self.trainer.get_model_weight(), self.addr, self.round
+        )
+        await EventManager.get_instance().publish_node_event(self_update_event)
+        await asyncio.to_thread(self.um.after_publishing)
+
+        await self.cm.propagator.propagate("stable")
+        await self._waiting_model_updates()
+
+    async def _extended_unlearned_cycle(self):
         await self.trainer.test()
         await self._waiting_model_updates()
 
@@ -774,6 +762,9 @@ class ServerNode(Engine):
             trainer,
             security,
         )
+
+    async def _extend_cycle(self):
+        self._extended_learning_cycle()
 
     async def _extended_learning_cycle(self):
         # Define the functionality of the server node
@@ -819,21 +810,26 @@ class TrainerNode(Engine):
 
         await self.cm.propagator.propagate("stable")
         await self._waiting_model_updates()
+    
+    async def _extended_unlearning_cycle(self):
+        logging.info("Waiting global update | Assign _waiting_global_update = True")
 
-    async def _unlearning_cycle(self):
-        unlearning_method = self.config.participant["unlearning_args"]["unlearning_method"]
-        logging.info(f"!!!!!!!!!!!!!!!Unlearning method!!!!!!!!!: {unlearning_method}")
-        if unlearning_method == 'Basic Retraining':
-            logging.info("Reset model parameters for unlearning")
-            await asyncio.to_thread(self.trainer.reset_model_parameters)
-        elif unlearning_method == 'Knowledge Distillation':
-            logging.info("Using knowledge distillation for unlearning")
-            await asyncio.to_thread(self.trainer.distill_knowledge)
-        else:
-            raise NotImplementedError()
+        await self.trainer.test()
+        await asyncio.to_thread(self.um.before_training)
+        await self.trainer.train()
+        await asyncio.to_thread(self.um.after_training)
 
-    async def _after_unlearning_cycle(self):
-        logging.info("AFTER UNLEARNING OF TRAINER")
+        await asyncio.to_thread(self.um.before_publishing)
+        self_update_event = UpdateReceivedEvent(
+            self.trainer.get_model_parameters(), self.trainer.get_model_weight(), self.addr, self.round, local=True
+        )
+        await EventManager.get_instance().publish_node_event(self_update_event)
+        await asyncio.to_thread(self.um.after_publishing)
+
+        await self.cm.propagator.propagate("stable")
+        await self._waiting_model_updates()
+
+    async def _extended_unlearned_cycle(self):
         await self.trainer.test()
         await self._waiting_model_updates()
 
