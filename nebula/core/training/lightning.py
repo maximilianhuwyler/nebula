@@ -131,6 +131,7 @@ class Lightning:
         self._trainer = None
         self.epochs = 1
         self.round = 0
+        self.train_gradient_clip_val = None
         self.experiment_name = self.config.participant["scenario_args"]["name"]
         self.idx = self.config.participant["device_args"]["idx"]
         self.log_dir = os.path.join(self.config.participant["tracking_args"]["log_dir"], self.experiment_name)
@@ -187,6 +188,7 @@ class Lightning:
             self._trainer = Trainer(
                 callbacks=[ModelSummary(max_depth=1), NebulaProgressBar()],
                 max_epochs=self.epochs,
+                gradient_clip_val=self.train_gradient_clip_val,
                 accelerator="gpu",
                 devices=gpu_index,
                 logger=self._logger,
@@ -199,6 +201,7 @@ class Lightning:
             self._trainer = Trainer(
                 callbacks=[ModelSummary(max_depth=1), NebulaProgressBar()],
                 max_epochs=self.epochs,
+                gradient_clip_val=self.train_gradient_clip_val,
                 accelerator="cpu",
                 devices="auto",
                 logger=self._logger,

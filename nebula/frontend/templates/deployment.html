@@ -1089,6 +1089,84 @@
                         </div>
                     </div>
                 </div>
+                <!-- Unlearning -->
+                <div class="form-group row container-shadow tiny grey">
+                    <h5 class="step-number">Unlearning<i class="fa fa-remove"></i>
+                    </h5>
+                    <h5 class="step-title">Unlearning Method</h5>
+                    <div class="form-check form-check-inline">
+                        <select class="form-control" id="unlearning-method-select"
+                            style="display: inline; width: 20%">
+                            <option selected>No Unlearning</option>
+                            <option>Parameter Resetting</option>
+                            <option>Gradient Ascent</option>
+                        </select>
+                        <small id="unlearningHelp" class="form-text text-muted">
+                            <i id="unlearningHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                        </small>
+                            <div id="unlearning-fields">
+
+                            <h5 id="unlearn-attackers-title" class="step-title">Unlearn Attackers</h5>
+                            <div class="form-check form-switch" style="margin-bottom: 20px;">
+                                <input class="form-check-input" type="checkbox" id="unlearn-attackers-container" checked="true"
+                                    style="display: inline; width: 80px; height: 30px;">
+                            </div>
+                            <h5 id="unlearning-participants-percentage-title" class="step-title">Unlearning participants (%)</h5>
+                            <input type="number" class="form-control" id="unlearning-participants-percentage-container" min="0" max="100" value="10"
+                                style="display: inline; width: 20%">
+                            <h5 id="unlearning-round-title" class="step-title">Unlearning round</h5>
+                            <input type="number" class="form-control" id="unlearning-round-container" min="1" value="5"
+                                style="display: inline; width: 20%">
+                            <h5 id="gradient-clip-val-title" class="step-title">Gradient Clip Value</h5>
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <input type="number" step="1" class="form-control" id="gradient-clip-val-container"
+                                    style="display: inline-block; width: 20%;" min="0" value="1">
+                                <small id="gradient-clip-val-help" class="form-text text-muted" style="margin-left: 8px;">
+                                    <i id="gradientClipValHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                                </small>
+                            </div>
+                            <h5 id="weight-factor-title" class="step-title">Weight Factor</h5>
+                            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                <input type="number" step="1" class="form-control" id="weight-factor-container"
+                                    style="display: inline-block; width: 20%;" min="1" value="10">
+                                <small id="weight-factor-help" class="form-text text-muted" style="margin-left: 8px;">
+                                    <i id="weightFactorHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                                </small>
+                            </div>
+                            <h5 id="retraining-method-title" class="step-title">Retraining Method</h5>
+                            <div class="form-check form-check-inline">
+                                <select class="form-control" id="retraining-method-container"
+                                    style="display: inline; width: 100%">
+                                    <option selected>No Retraining</option>
+                                    <option>Knowledge Distillation</option>
+                                </select>
+                                <div style="margin-bottom: 10px;">
+                                    <h5 id="retraining-rounds-title" class="step-title" style="margin-bottom: 5px;">Retraining Rounds</h5>
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="number" step="1" class="form-control" id="retraining-rounds-container"
+                                            style="width: 220px; display: inline-block; margin-right: 10px;" min="1" value="1">
+                                    </div>
+                                    <h5 id="alpha-title" class="step-title" style="margin-bottom: 5px;">Alpha</h5>
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="number" step="0.1" class="form-control" id="alpha-container"
+                                            style="width: 220px; display: inline-block; margin-right: 10px;" min="0" max="1" value="0">
+                                        <small id="alpha-help" class="form-text text-muted">
+                                            <i id="alphaHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                                        </small>
+                                    </div>
+                                    <h5 id="temperature-title" class="step-title" style="margin-bottom: 5px;">Temperature</h5>
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="number" step="0.5" class="form-control" id="temperature-container"
+                                            style="width: 220px; display: inline-block; margin-right: 10px;" min="1" value="4">
+                                        <small id="temperature-help" class="form-text text-muted">
+                                            <i id="temperatureHelpIcon" class="fa fa-info-circle" style="cursor: pointer;"></i>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -1108,6 +1186,7 @@
         import MobilityManager from '../../static/js/deployment/mobility.js';
         import ReputationManager from '../../static/js/deployment/reputation.js';
         import TrustworthinessManager from '../../static/js/deployment/trustworthiness.js';
+        import UnlearningManager from '../../static/js/deployment/unlearning.js';
         import GraphSettings from '../../static/js/deployment/graph-settings.js';
         import Utils from '../../static/js/deployment/utils.js';
         import HelpContent from '../../static/js/deployment/help-content.js';
@@ -1120,6 +1199,7 @@
         window.MobilityManager = MobilityManager;
         window.ReputationManager = ReputationManager;
         window.TrustworthinessManager = TrustworthinessManager;
+        window.UnlearningManager = UnlearningManager;
         window.GraphSettings = GraphSettings;
         window.HelpContent = HelpContent;
         window.UIControls = UIControls;

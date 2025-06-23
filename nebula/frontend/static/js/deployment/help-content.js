@@ -13,7 +13,12 @@ const HelpContent = (function() {
             'partitionMethodsHelpIcon': partitionMethods,
             'parameterSettingHelpIcon': parameterSetting,
             'modelHelpIcon': model,
-            'maliciousHelpIcon': malicious
+            'maliciousHelpIcon': malicious,
+            'unlearningHelpIcon': unlearning,
+            'gradientClipValHelpIcon': gradientClipVal,
+            'weightFactorHelpIcon': weightFactor,
+            'alphaHelpIcon': alpha,
+            'temperatureHelpIcon': temperature
         };
 
         Object.entries(tooltipElements).forEach(([id, content]) => {
@@ -131,6 +136,57 @@ const HelpContent = (function() {
         <ul style="margin-bottom: 0;">
             <li><strong>Percentage:</strong> Set percentage of malicious nodes</li>
             <li><strong>Manual:</strong> Select malicious nodes in the graph</li>
+        </ul>
+    </div>`;
+
+    const unlearning = `<div style="text-align: left;">
+        <strong>Unlearning Methods</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Parameter Resetting: The model parameters and learning rate are reset.</li>
+            <li>Gradient Ascent: Projected gradient ascent is applied to the model.</li>
+        </ul>
+    </div>`;
+
+    const gradientClipVal = `<div style="text-align: left;">
+        <strong>Weight Factor</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Gradient Clip Value (>0): To avaid catastrophical unlearning, this parameter
+            is used to rescale the gradient if too large.</li>
+        </ul>
+    </div>`;
+
+    const weightFactor = `<div style="text-align: left;">
+        <strong>Weight Factor</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Weight Factor (>1): After gradient ascent, this factor determines how strongly
+            the unlearned model is weighted in the aggregation.</li>
+        </ul>
+    </div>`;
+
+    const alpha = `<div style="text-align: left;">
+        <strong>Weight Factor</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Alpha (0-1): This is the ratio how much much the loss is influenced by the
+            standard loss and the distillation loss.
+            </li>
+            <ul>
+                <li>Close to 0: Heavy focus on distillation loss.</li>
+                <li>Close to 1: Heavy focus on standard loss.</li>
+            </ul>
+        </ul>
+    </div>`;
+
+    const temperature = `<div style="text-align: left;">
+        <strong>Weight Factor</strong>
+        <ul style="margin-bottom: 0;">
+            <li>Temperature (>1): Parameter used to soften the output probabilities of the
+            teacher model's softmax layer.
+            </li>
+            <ul>
+                <li>Close to 1: Produces sharp probability distribution.</li>
+                <li>~4: Standard value from literature.</li>
+                <li>>4: Higher value produces a softer probability distribution.</li>
+            </ul>
         </ul>
     </div>`;
 

@@ -8,6 +8,7 @@ import SaManager from './situational-awareness.js';
 import GraphSettings from './graph-settings.js';
 import Utils from './utils.js';
 import TrustworthinessManager from './trustworthiness.js';
+import UnlearningManager from './unlearning.js';
 
 const DeploymentManager = (function() {
     function initialize() {
@@ -32,6 +33,7 @@ const DeploymentManager = (function() {
         SaManager.initializeSa();
         TrustworthinessManager.initializeTrustworthinessSystem();
         GraphSettings.initializeDistanceControls();
+        UnlearningManager.initializeEventListeners();
 
         // Make modules globally available
         window.ScenarioManager = ScenarioManager;
@@ -41,6 +43,7 @@ const DeploymentManager = (function() {
         window.ReputationManager = ReputationManager;
         window.SaManager = SaManager;
         window.TrustworthinessManager = TrustworthinessManager;
+        window.UnlearningManager = UnlearningManager;
         window.GraphSettings = GraphSettings;
         window.DeploymentManager = DeploymentManager;
         window.Utils = Utils;

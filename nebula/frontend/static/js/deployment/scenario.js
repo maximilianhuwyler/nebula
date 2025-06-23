@@ -54,6 +54,21 @@ const ScenarioManager = (function() {
         // Get attack configuration
         const attackConfig = window.AttackManager.getAttackConfig();
 
+        const unlearningConfig = window.UnlearningManager.getUnlearningConfig();
+
+        const unlearningMethod = unlearningConfig.unlearning_method;
+        const unlearningParams = {
+            unlearn_attackers: unlearningConfig.unlearn_attackers || false,
+            unlearning_participants_percentage: unlearningConfig.unlearning_participants_percentage || 10,
+            unlearning_round: unlearningConfig.unlearning_round || 5,
+            gradient_clip_val: unlearningConfig.gradient_clip_val || 1,
+            weight_factor: unlearningConfig.weight_factor || 10,
+            retraining_method: unlearningConfig.retraining_method || "No Retraining",
+            retraining_rounds: unlearningConfig.retraining_rounds || 1,
+            alpha: unlearningConfig.alpha || 0,
+            temperature: unlearningConfig.temperature || 4,
+        };
+
         return {
             scenario_title: document.getElementById("scenario-title").value,
             scenario_description: document.getElementById("scenario-description").value,
@@ -125,6 +140,8 @@ const ScenarioManager = (function() {
             energy_source: document.getElementById("sustainability-notion-1").value,
             hardware_efficiency: document.getElementById("sustainability-notion-2").value,
             federation_complexity: document.getElementById("sustainability-notion-3").value,
+            unlearning_method: unlearningMethod,
+            unlearning_params: unlearningParams,
             network_subnet: "172.20.0.0/16",
             network_gateway: "172.20.0.1",
             additional_participants: window.MobilityManager.getMobilityConfig().additionalParticipants || [],
@@ -243,6 +260,12 @@ const ScenarioManager = (function() {
             });
         }
 
+        // Load unlearning config
+        window.UnlearningManager.setUnlearningConfig({
+            unlearning_method: scenario.unlearning_method,
+            unlearning_params: scenario.unlearning_params,
+        });
+
         // Trigger necessary events
         document.getElementById("federationArchitecture").dispatchEvent(new Event('change'));
         document.getElementById("datasetSelect").dispatchEvent(new Event('change'));
@@ -342,6 +365,9 @@ const ScenarioManager = (function() {
         }
         if (window.SaManager) {
             window.SaManager.resetSaConfig();
+        }
+        if (window.UnlearningManager) {
+            window.UnlearningManager.resetUnlearningConfig();
         }
 
         // Trigger necessary events

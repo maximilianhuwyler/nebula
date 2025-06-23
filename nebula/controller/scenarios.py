@@ -108,6 +108,8 @@ class Scenario:
         sar_neighbor_policy,
         sar_training,
         sar_training_policy,
+        unlearning_method,
+        unlearning_params,
         physical_ips=None,
     ):
         """
@@ -160,6 +162,8 @@ class Scenario:
             sar_neighbor_policy (str): Neighbor policy for SAR.
             sar_training (bool): Wheter SAR training is enabled.
             sar_training_policy (str): Training policy for SAR.
+            unlearning_method (str): Method for unlearning.
+            unlearning_params (dict) : Unlearning parameters.
             physical_ips (list, optional): List of physical IPs for nodes. Defaults to None.
         """
         self.scenario_title = scenario_title
@@ -234,6 +238,31 @@ class Scenario:
         self.sar_training = sar_training
         self.sar_training_policy = sar_training_policy
         self.physical_ips = physical_ips
+        self.unlearning_method = unlearning_method
+        self.unlearning_params = unlearning_params
+
+    @staticmethod
+    def validate_percentage(value, name):
+        """
+        Validate that a given value is a float percentage between 0 and 100.
+
+        Args:
+            value: The value to validate, expected to be convertible to float.
+            name (str): Name of the parameter, used for error messages.
+
+        Returns:
+            float: The validated percentage value.
+
+        Raises:
+            ValueError: If the value is not a float or not within the range [0, 100].
+        """
+        try:
+            value = float(value)
+            if not 0 <= value <= 100:
+                raise ValueError(f"{name} must be between 0 and 100")
+            return value
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Invalid {name}: {e!s}")
 
     def attack_node_assign(
         self,
@@ -275,29 +304,6 @@ class Scenario:
         import logging
         import math
         import random
-
-        # Validate input parameters
-        def validate_percentage(value, name):
-            """
-            Validate that a given value is a float percentage between 0 and 100.
-
-            Args:
-                value: The value to validate, expected to be convertible to float.
-                name (str): Name of the parameter, used for error messages.
-
-            Returns:
-                float: The validated percentage value.
-
-            Raises:
-                ValueError: If the value is not a float or not within the range [0, 100].
-            """
-            try:
-                value = float(value)
-                if not 0 <= value <= 100:
-                    raise ValueError(f"{name} must be between 0 and 100")
-                return value
-            except (TypeError, ValueError) as e:
-                raise ValueError(f"Invalid {name}: {e!s}")
 
         def validate_positive_int(value, name):
             """
@@ -352,9 +358,9 @@ class Scenario:
         poisoned_noise_percent = attack_params.get("poisoned_noise_percent", poisoned_noise_percent)
 
         # Validate percentage parameters
-        poisoned_node_percent = validate_percentage(poisoned_node_percent, "poisoned_node_percent")
-        poisoned_sample_percent = validate_percentage(poisoned_sample_percent, "poisoned_sample_percent")
-        poisoned_noise_percent = validate_percentage(poisoned_noise_percent, "poisoned_noise_percent")
+        poisoned_node_percent = Scenario.validate_percentage(poisoned_node_percent, "poisoned_node_percent")
+        poisoned_sample_percent = Scenario.validate_percentage(poisoned_sample_percent, "poisoned_sample_percent")
+        poisoned_noise_percent = Scenario.validate_percentage(poisoned_noise_percent, "poisoned_noise_percent")
 
         nodes_index = []
         # Get the nodes index
@@ -442,7 +448,7 @@ class Scenario:
                 elif attack == "Delayer":
                     node_attack_params["poisoned_node_percent"] = poisoned_node_percent
                     node_attack_params["delay"] = validate_positive_int(attack_params.get("delay", 10), "delay")
-                    node_attack_params["target_percentage"] = validate_percentage(
+                    node_attack_params["target_percentage"] = Scenario.validate_percentage(
                         attack_params.get("target_percentage", 100), "target_percentage"
                     )
                     node_attack_params["selection_interval"] = validate_positive_int(
@@ -454,7 +460,7 @@ class Scenario:
                     node_attack_params["flooding_factor"] = validate_positive_int(
                         attack_params.get("flooding_factor", 100), "flooding_factor"
                     )
-                    node_attack_params["target_percentage"] = validate_percentage(
+                    node_attack_params["target_percentage"] = Scenario.validate_percentage(
                         attack_params.get("target_percentage", 100), "target_percentage"
                     )
                     node_attack_params["selection_interval"] = validate_positive_int(
@@ -522,6 +528,205 @@ class Scenario:
             if node in mobile_nodes:
                 node_mob = True
             nodes[node]["mobility"] = node_mob
+        return nodes
+    
+    def unlearning_node_assign(
+            self,
+            nodes,
+            federation,
+            unlearning_method,
+            unlearning_params,
+            ):
+        """
+        Assign and configure unlearning parameters to nodes within a federated learning network.
+
+        This method:
+            - Validates input unlearning parameters and percentages.
+            - Determines which nodes will be marked as malicious based on the specified
+              poisoned node percentage and attack type.
+            - Assigns unlearning parameters to nodes.
+            - Supports parameter resetting, and gradient ascent as unlearning methods.
+            - Supports knowledge distillation as retraining methods.
+            - Ensures proper validation and setting of unlearning- or retraining-specific parameters,
+              including gradient clipping value, weight factor when redistributing unlearned model and
+              alpha and temperature parameters for knowledge distillation.
+
+        Args:
+            nodes (dict): Dictionary of nodes with their current attributes.
+            federation (str): Type of federated learning framework (e.g., "DFL").
+            unlearning_method (str): Name of the unlearning method.
+            unlearning_params (dict): Dictionary containing unlearning parameters.
+
+        Returns:
+            dict: Updated nodes dictionary with assigned unlearning parameters.
+
+        Raises:
+            ValueError: If any input parameter is invalid or unlearning method is unrecognized.
+        """
+        import logging
+        import random
+
+        def validate_value(
+                value,
+                type,
+                name,
+                lower_bound=0,
+                strict_lower_bound=False,
+                upper_bound=None,
+                strict_upper_bound=False,):
+            """
+            Validate that a given value is a positive integer (including zero).
+
+            Args:
+                value: The value to validate, expected to be convertible to int.
+                name (str): Name of the parameter, used for error messages.
+
+            Returns:
+                int: The validated positive integer value.
+
+            Raises:
+                ValueError: If the value is not an integer or is negative.
+            """
+            try:
+                value = type(value)
+                if ((strict_lower_bound and value <= lower_bound) or
+                    (not strict_lower_bound and value < lower_bound)):
+                    raise ValueError(f"{name} must be within lower bound")
+                if (upper_bound is not None and
+                    ((strict_upper_bound and value >= upper_bound) or
+                    (not strict_upper_bound and value > upper_bound))):
+                    raise ValueError(f"{name} must be within upper bound")
+                return value
+            except (TypeError, ValueError) as e:
+                raise ValueError(f"Invalid {name}: {e!s}")
+
+        valid_unlearning_methods = {
+            "No Unlearning",
+            "Parameter Resetting",
+            "Gradient Ascent",
+        }
+        valid_retraining_methods = {
+            "No Retraining",
+            "Knowledge Distillation",
+        }
+
+        # Validate unlearning method
+        if unlearning_method not in valid_unlearning_methods:
+            logging.info(f"Invalid unlearning method: {unlearning_method}")
+            raise ValueError(f"Invalid unlearning method: {unlearning_method}")
+
+        nodes_index = []
+        # First filter all nodes with server role
+        if federation == "DFL":
+            nodes_index = list(nodes.keys())
+        else:
+            for node in nodes:
+                if nodes[node]["role"] != "server":
+                    nodes_index.append(node)
+
+        logging.info(f"Nodes index: {nodes_index}")
+        logging.info(f"Unlearning method: {unlearning_method}")
+
+        # Set the unlearning method for each node
+        for node in nodes:
+            nodes[node]["unlearning_method"] = unlearning_method
+
+        # Set unlearning parameter if unlearning is planned
+        if unlearning_method != "No Unlearning":
+            unlearning_params = unlearning_params.copy() if unlearning_params else {}
+            # Set which nodes will be unlearned and are passive after unlearning
+            unlearning_nodes = []
+            # If unlearning attackers is set, all malicious nodes will be unlearned
+            unlearning_attackers = unlearning_params.get("unlearn_attackers", False)
+            if (unlearning_attackers):
+                for node in nodes_index:
+                    if nodes[node]['malicious']:
+                        unlearning_nodes.append(node)
+            else:
+                # Randomly sample unlearning nodes based on percentage
+                n_nodes = len(nodes_index)
+                unlearning_participants_percentage = unlearning_params.get("unlearning_participants_percentage", 10)
+                unlearning_participants_percentage = Scenario.validate_percentage(unlearning_participants_percentage, "unlearning_participants_percentage")
+                num_unlearning = int(math.ceil(unlearning_participants_percentage / 100 * n_nodes))
+                if num_unlearning > n_nodes:
+                    num_unlearning = n_nodes
+                unlearning_nodes = random.sample(nodes_index, num_unlearning)
+
+            logging.info(f"Unlearning nodes: {unlearning_nodes}")
+
+            for node in nodes:
+                unlearning_params["unlearning_nodes"] = unlearning_nodes
+                # Set and validate unlearning round
+                # 1 <= unlearning_round (int) < rounds
+                default_unlearning_round = self.rounds // 2
+                unlearning_round = unlearning_params.get("unlearning_round", default_unlearning_round)
+                unlearning_params["unlearning_round"] = validate_value(unlearning_round,
+                                                                       int,
+                                                                       "unlearning_round",
+                                                                       lower_bound=1,
+                                                                       strict_lower_bound=False,
+                                                                       upper_bound=self.rounds,
+                                                                       strict_upper_bound=True)
+
+                if unlearning_method == "Gradient Ascent":
+                    # Set and validate gradient ascent parameters
+                    # 0 < gradient_clip_val (float)
+                    gradient_clip_val = unlearning_params.get("gradient_clip_val", 1.0)
+                    unlearning_params["gradient_clip_val"] = validate_value(gradient_clip_val,
+                                                                            float,
+                                                                            "gradient_clip_val",
+                                                                            lower_bound=0,
+                                                                            strict_lower_bound=True)
+                    # 1 <= weight_factor (int)
+                    weight_factor = unlearning_params.get("weight_factor", 10)
+                    unlearning_params["weight_factor"] = validate_value(weight_factor,
+                                                                        int,
+                                                                        "weight_factor",
+                                                                        lower_bound=1,
+                                                                        strict_lower_bound=False)
+
+                retraining_method = unlearning_params.get("retraining_method", "No Retraining")
+
+                # Validate retraining method
+                if retraining_method not in valid_retraining_methods:
+                    logging.info(f"Invalid retraining method: {retraining_method}")
+                    raise ValueError(f"Invalid retraining method: {retraining_method}")
+
+                if retraining_method != "No Retraining":
+                    # Set and validate retraining rounds
+                    # 1 <= retraining_rounds (int) < rounds - unlearning_round
+                    retraining_rounds = unlearning_params.get("retraining_rounds", 1)
+                    unlearning_params["retraining_rounds"] = validate_value(retraining_rounds,
+                                                       int,
+                                                       "retraining_rounds",
+                                                       lower_bound=1,
+                                                       strict_lower_bound=False,
+                                                       upper_bound=self.rounds - unlearning_round,
+                                                       strict_upper_bound=False)
+
+                if retraining_method == "Knowledge Distillation":
+                    # Set and validate knowledge distillation parameters
+                    # 0 <= alpha (float) <= 1
+                    alpha = unlearning_params.get("alpha", 0.0)
+                    unlearning_params["alpha"] = validate_value(alpha,
+                                                                float,
+                                                                "alpha",
+                                                                lower_bound=0.0,
+                                                                strict_lower_bound=False,
+                                                                upper_bound=1.0,
+                                                                strict_upper_bound=False)
+                    # 1 <= temperature (float)
+                    temperature = unlearning_params.get("temperature", 4.0)
+                    unlearning_params["temperature"] = temperature = validate_value(temperature,
+                                                                                float,
+                                                                                "temperature",
+                                                                                lower_bound=1.0,
+                                                                                strict_lower_bound=False)
+                nodes[node]["unlearning_params"] = unlearning_params
+                logging.info(
+                    f"Node {node} final configuration - unlearning: {node in unlearning_nodes}, " +
+                    f"unlearning method: {unlearning_method}, retraining method: {retraining_method}"
+                )
         return nodes
 
     @classmethod
@@ -654,6 +859,13 @@ class ScenarioManagement:
         else:
             self.scenario.nodes = self.scenario.mobility_assign(self.scenario.nodes, 0)
 
+        self.scenario.nodes = self.scenario.unlearning_node_assign(
+            self.scenario.nodes,
+            self.scenario.federation,
+            self.scenario.unlearning_method,
+            self.scenario.unlearning_params,
+        )
+
         # Save node settings
         for node in self.scenario.nodes:
             node_config = self.scenario.nodes[node]
@@ -754,6 +966,11 @@ class ScenarioManagement:
                     "federation_complexity": self.scenario.federation_complexity,
                     "scenario": scenario,
                 }
+
+            # Set unlearning method and parameters
+            participant_config["unlearning_args"]["unlearning_method"] = node_config["unlearning_method"]
+            if node_config["unlearning_method"] != "No Unlearning":
+                participant_config["unlearning_args"]["unlearning_params"] = node_config["unlearning_params"]
 
             with open(participant_file, "w") as f:
                 json.dump(participant_config, f, sort_keys=False, indent=2)

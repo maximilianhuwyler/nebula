@@ -102,6 +102,10 @@
   "adversarial_args": {
     "attack_params" : {}
   },
+  "unlearning_args": {
+    "unlearning_method": "No Unlearning",
+    "unlearning_params": {}
+  },
   "tracking_args": {
     "enable_remote_tracking": false,
     "local_tracking": "basic",

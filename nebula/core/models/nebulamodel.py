@@ -260,6 +260,63 @@ class NebulaModel(pl.LightningModule, ABC):
         Returns:
         """
         return self.step(batch, batch_idx=batch_idx, phase="Train")
+    
+    def training_step_random(self, batch, batch_idx):
+        """
+        Filler training step that randomly permutes the labels.
+        This is used to simulate a training step without any meaningful learning.
+        """
+        x, y = batch
+        # Randomly permute the labels
+        perm = torch.randperm(y.size(0), device=y.device)
+        y_permuted = y[perm]
+
+        y_pred = self.forward(x)
+        loss = self.criterion(y_pred, y_permuted)
+        self.process_metrics("Train", y_pred, y, loss)
+
+        self._current_loss = loss
+        return loss
+
+    def training_step_gradient_ascent(self, batch, batch_idx):
+        """
+        Training step for the model using gradient ascent. Instead of minimizing
+        the standard loss we maximize by minimizing the negative loss.
+        """
+        x, y = batch
+        y_pred = self.forward(x)
+        # Switch sign of the loss to maximize it
+        loss = -self.criterion(y_pred, y)
+        self.process_metrics("Train", y_pred, y, loss)
+
+        self._current_loss = loss
+        return loss
+
+    def training_step_knowledge_distillation(self, batch, batch_idx):
+        """
+        Training step for the model using knowledge distillation.
+        This method uses a teacher model to generate soft targets and
+        a student model to learn from those targets.
+        """
+        x, y = batch
+        # Get teacher logits by forwarding the input through the teacher model
+        # without calculating gradients.
+        with torch.no_grad():
+          teacher_logits = self.teacher.forward(x)
+        student_logits = self.forward(x)
+        # Calculate the soft targets of the teacher model and the soft probabilities
+        # of the student model. Smoothen the distribution using the temperature parameter.
+        soft_targets = torch.nn.functional.softmax(teacher_logits / self.temperature, dim=-1)
+        soft_prob = torch.nn.functional.log_softmax(student_logits / self.temperature, dim=-1)
+        # Calculate the soft targets loss and scale it using the temperature parameter.
+        soft_targets_loss = torch.sum(soft_targets * (soft_targets.log() - soft_prob)) / soft_prob.size()[0] * (self.temperature**2)
+        standard_loss = self.criterion(student_logits, y)
+        # Combine the standard loss and the soft targets loss using the alpha parameter.
+        loss = self.alpha * standard_loss + (1 - self.alpha) * soft_targets_loss
+        self.process_metrics("Train", student_logits, y, loss)
+
+        self._current_loss = loss
+        return loss
 
     def on_train_start(self):
         logging_training.info(f"{'=' * 10} [Training] Started {'=' * 10}")

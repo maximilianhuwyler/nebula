@@ -25,6 +25,7 @@ from nebula.core.network.communications import CommunicationsManager
 from nebula.core.role import Role, factory_node_role
 from nebula.core.situationalawareness.situationalawareness import SituationalAwareness
 from nebula.core.utils.locker import Locker
+from nebula.addons.unlearning.extension import NodeState, LearningCycleExtensionManager
 
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -161,6 +162,16 @@ class Engine:
         if self.config.participant["defense_args"]["reputation"]["enabled"]:
             self._reputation = Reputation(engine=self, config=self.config)
 
+        # Depending on the state of the node extend the learning cycle with learning,
+        # unlearning, or retraining functionality. When passive only extend the learning
+        # cycle with testing.
+        self.node_state = NodeState.ACTIVE
+        self.extended_cycle_handlers = {
+            NodeState.ACTIVE: self._extended_learning_cycle,
+            NodeState.PASSIVE: self._extended_passive_cycle,
+        }
+        self._lcem = LearningCycleExtensionManager(self.trainer, self.cm, self.config)
+
     @property
     def cm(self):
         """Communication Manager"""
@@ -185,6 +196,11 @@ class Engine:
     def sa(self):
         """Situational Awareness Module"""
         return self._situational_awareness
+    
+    @property
+    def lcem(self):
+        """Learning Cycle Extension Manager"""
+        return self._lcem
 
     def get_aggregator_type(self):
         return type(self.aggregator)
@@ -740,7 +756,7 @@ class Engine:
         - Updating the list of federation nodes.
         - Publishing a `RoundStartEvent` for local and global monitoring.
         - Preparing the trainer and aggregator components.
-        2. Running the core learning logic via `_extended_learning_cycle`.
+        2. Running the core (un)learning logic via `_extended_learning_cycle`.
         3. Ending each round:
         - Publishing a `RoundEndEvent`.
         - Releasing and updating the current round state in the configuration.
@@ -765,6 +781,8 @@ class Engine:
                 await self.cm.get_addrs_current_connections(only_direct=True, myself=True)
             )
             expected_nodes = await self.get_federation_nodes()
+            # Configure the learning cycle extensions and adjust the expected nodes
+            self.node_state = self.lcem.configure_round(self.round, expected_nodes)
             rse = RoundStartEvent(self.round, current_time, expected_nodes)
             await EventManager.get_instance().publish_node_event(rse)
             self.trainer.on_round_start()
@@ -774,7 +792,9 @@ class Engine:
             logging.info(f"Direct connections: {direct_connections} | Undirected connections: {undirected_connections}")
             logging.info(f"[Role {self.role.value}] Starting learning cycle...")
             await self.aggregator.update_federation_nodes(expected_nodes)
-            await self._extended_learning_cycle()
+            # Depending on the state of the node participate actively in the learning process
+            # or only passively receive updates and test the model.
+            await self.extended_cycle_handlers[self.node_state]()
 
             current_time = time.time()
             ree = RoundEndEvent(self.round, current_time)
@@ -827,8 +847,16 @@ class Engine:
 
     async def _extended_learning_cycle(self):
         """
-        This method is called in each round of the learning cycle. It is used to extend the learning cycle with additional
+        This method is called in the learning cycle. It is used to extend the learning cycle with additional
         functionalities. The method is called in the _learning_cycle method.
+        """
+        pass
+
+    async def _extended_passive_cycle(self):
+        """
+        This method is called in the learning cycle. When a node is in a passive state, it
+        does not take part in the learning anymore but only receives updates and tests it
+        on the local and global data.
         """
         pass
 

@@ -54,7 +54,11 @@ class MaliciousNode(Engine):
         )
         self.attack = create_attack(self)
         self.aggregator_bening = self._aggregator
-
+        self.role_handlers: dict[str, Engine] = {
+            "aggregator": AggregatorNode,
+            "trainer": TrainerNode,
+            "server": ServerNode,
+        }
     async def _extended_learning_cycle(self):
         try:
             await self.attack.attack()
@@ -62,12 +66,10 @@ class MaliciousNode(Engine):
             attack_name = self.config.participant["adversarial_args"]["attack_params"]["attacks"]
             logging.exception(f"Attack {attack_name} failed")
 
-        if self.role.value == "aggregator":
-            await AggregatorNode._extended_learning_cycle(self)
-        if self.role.value == "trainer":
-            await TrainerNode._extended_learning_cycle(self)
-        if self.role.value == "server":
-            await ServerNode._extended_learning_cycle(self)
+        await self.role_handlers[self.role]._extended_learning_cycle(self)
+
+    async def _extended_passive_cycle(self):
+        await self.role_handlers[self.role]._extended_passive_cycle(self)
 
 
 class AggregatorNode(Engine):
@@ -120,18 +122,29 @@ class AggregatorNode(Engine):
     async def _extended_learning_cycle(self):
         # Define the functionality of the aggregator node
         await self.trainer.test()
+        self.lcem.before_training()
         await self.trainning_in_progress_lock.acquire_async()
         await self.trainer.train()
         await self.trainning_in_progress_lock.release_async()
+        self.lcem.after_training()
 
+        self.lcem.before_publishing()
         self_update_event = UpdateReceivedEvent(
             self.trainer.get_model_parameters(), self.trainer.get_model_weight(), self.addr, self.round
         )
         await EventManager.get_instance().publish_node_event(self_update_event)
+        self.lcem.after_publishing()
 
         await self.cm.propagator.propagate("stable")
         await self._waiting_model_updates()
 
+    async def _extended_passive_cycle(self):
+        """
+        Test on the local and global data and wait for model updates from other nodes.
+        These updates are used to test on local data to see unlearning effects.
+        """
+        await self.trainer.test()
+        await self._waiting_model_updates()
 
 class ServerNode(Engine):
     """
@@ -240,14 +253,26 @@ class TrainerNode(Engine):
         logging.info("Waiting global update | Assign _waiting_global_update = True")
 
         await self.trainer.test()
+        self.lcem.before_training()
         await self.trainer.train()
+        self.lcem.after_training()
 
+        self.lcem.before_publishing()
         self_update_event = UpdateReceivedEvent(
             self.trainer.get_model_parameters(), self.trainer.get_model_weight(), self.addr, self.round, local=True
         )
         await EventManager.get_instance().publish_node_event(self_update_event)
+        self.lcem.after_publishing()
 
         await self.cm.propagator.propagate("stable")
+        await self._waiting_model_updates()
+
+    async def _extended_passive_cycle(self):
+        """
+        Test on the local and global data and wait for model updates from other nodes.
+        These updates are used to test on local data to see unlearning effects.
+        """
+        await self.trainer.test()
         await self._waiting_model_updates()
 
 
