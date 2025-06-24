@@ -72,13 +72,13 @@ class LearningCycleExtensionManager:
             in the round.
         """
         if self.is_unlearning_node:
-            logging.info(f"Removing itself from expected nodes")
+            logging.info(f"Removing itself from expected nodes") # MHTODO remove
             expected_nodes.discard(self.addr)
         for addr, conn in self.cm.connections.items():
             node_id = int(getattr(conn, "id", None))
             if node_id in self.unlearning_nodes:
                 expected_nodes.discard(addr)
-                logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes")
+                logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes") # MHTODO remove
 
     def configure_round(
             self,
@@ -102,15 +102,18 @@ class LearningCycleExtensionManager:
             self.remove_passive_nodes(expected_nodes)
 
         # Initialize the retraining extension if needed
-        if self.retraining_extension.do_init(round):
-            self.retraining_extension.init()
+        if self.retraining_extension.is_setup_round(round):
+            self.retraining_extension.setup()
 
         # Set the active extension based on the current round
-        if self.unlearning_extension.is_activate(round):
+        if self.unlearning_extension.is_active(round):
+            logging.info(f"Unlearning extension is active for round {round}") #MHTODO remove
             self.active_extension = self.unlearning_extension
-        elif self.retraining_extension.is_activate(round):
+        elif self.retraining_extension.is_active(round):
+            logging.info(f"Retraining extension is active for round {round}") #MHTODO remove
             self.active_extension = self.retraining_extension
         else:
+            logging.info(f"Normal extension is active for round {round}") #MHTODO remove
             # If no unlearning or retraining is active, use the default learning cycle extension
             self.active_extension = LearningCycleExtension()
 
@@ -132,7 +135,7 @@ class LearningCycleExtensionManager:
 
 
 class LearningCycleExtension:
-    def is_activate(self, round: int) -> bool:
+    def is_active(self, round: int) -> bool:
         """
         Checks if the extension is activated for the current round.
         

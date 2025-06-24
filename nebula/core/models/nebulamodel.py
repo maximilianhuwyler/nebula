@@ -261,18 +261,14 @@ class NebulaModel(pl.LightningModule, ABC):
         """
         return self.step(batch, batch_idx=batch_idx, phase="Train")
     
-    def training_step_random(self, batch, batch_idx):
+    def training_step_zero_loss(self, batch, batch_idx):
         """
-        Filler training step that randomly permutes the labels.
-        This is used to simulate a training step without any meaningful learning.
+        Filler training step that zero loss and should not do any
+        meaningful updates.
         """
         x, y = batch
-        # Randomly permute the labels
-        perm = torch.randperm(y.size(0), device=y.device)
-        y_permuted = y[perm]
-
         y_pred = self.forward(x)
-        loss = self.criterion(y_pred, y_permuted)
+        loss = torch.tensor(0.0, device=self.device)
         self.process_metrics("Train", y_pred, y, loss)
 
         self._current_loss = loss

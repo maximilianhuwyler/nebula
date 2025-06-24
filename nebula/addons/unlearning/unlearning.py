@@ -39,7 +39,7 @@ class ParameterResetting(UnlearningCycleExtension):
         # The node is considered passive after immidiately after the parameter resetting
         return round >= self.unlearning_round
     
-    def is_activate(self, round):
+    def is_active(self, round):
         return round == self.unlearning_round
     
     def before_training(self):
@@ -48,7 +48,7 @@ class ParameterResetting(UnlearningCycleExtension):
         self.model.modify_learning_rate(self.initial_learning_rate)
         # Set the model training step to avoid immidiate retraining after resetting
         self.previous_training_step = self.model.training_step
-        self.model.training_step = self.model.training_step_random
+        self.model.training_step = self.model.training_step_zero_loss
 
     def after_training(self):
         # Reset the model training step to its previous value
@@ -83,7 +83,7 @@ class GradientAscent(UnlearningCycleExtension):
         # The node is considered passive after the gradient ascent update is distributed
         return round > self.unlearning_round
     
-    def is_activate(self, round):
+    def is_active(self, round):
         # The unlearning method is activated only in the unlearning round for the unlearning nodes
         return round == self.unlearning_round and self.is_unlearning_node
 

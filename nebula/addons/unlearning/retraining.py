@@ -9,13 +9,13 @@ class RetrainingCycleExtension(LearningCycleExtension):
     Base class for retraining cycle extensions. This class should
     do nothing when set as active extension and serve as a default.
     """
-    def do_init(self, round: int) -> bool:
+    def is_setup_round(self, round: int) -> bool:
         return False
     
-    def init(self):
+    def setup(self):
         pass
 
-class KnowledgeDistillation(LearningCycleExtension):
+class KnowledgeDistillation(RetrainingCycleExtension):
     """
     This extension implements knowledge distillation during the retraining phase.
     It uses a teacher model to guide the student model (the current model)
@@ -36,15 +36,15 @@ class KnowledgeDistillation(LearningCycleExtension):
         self.temperature = unlearning_params["temperature"]
         self.previous_training_step = None
 
-    def do_init(self, round: int) -> bool:
+    def is_setup_round(self, round: int) -> bool:
         # Initialize the teacher model before the unlearning is happening
         return round == self.unlearning_round
 
-    def init(self):
+    def setup(self):
         # Initialize the teacher model as a deep copy of the current model.
         self.teacher = deepcopy(self.model)
     
-    def is_activate(self, round):
+    def is_active(self, round):
         # The knowledge distillation is activated during the retraining phase
         # after the unlearning round and for the specified number of retraining rounds.
         return self.unlearning_round < round <= self.unlearning_round + self.retraining_rounds
