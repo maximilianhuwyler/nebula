@@ -268,7 +268,7 @@ class NebulaModel(pl.LightningModule, ABC):
         """
         x, y = batch
         y_pred = self.forward(x)
-        loss = torch.tensor(0.0, device=self.device)
+        loss = torch.tensor(0.0, device=self.device, requires_grad=True)
         self.process_metrics("Train", y_pred, y, loss)
 
         self._current_loss = loss
