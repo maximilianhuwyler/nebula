@@ -133,9 +133,10 @@ class AggregatorNode(Engine):
             self.trainer.get_model_parameters(), self.trainer.get_model_weight(), self.addr, self.round
         )
         await EventManager.get_instance().publish_node_event(self_update_event)
-        self.lcem.after_publishing()
 
         await self.cm.propagator.propagate("stable")
+        self.lcem.after_publishing()
+
         await self._waiting_model_updates()
 
     async def _extended_passive_cycle(self):
