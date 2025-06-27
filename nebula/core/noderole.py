@@ -5,6 +5,7 @@ from nebula.core.engine import Engine
 from nebula.core.eventmanager import EventManager
 from nebula.core.nebulaevents import UpdateReceivedEvent
 from nebula.core.training.lightning import Lightning
+from nebula.core.role import Role
 
 from enum import Enum
 
@@ -55,9 +56,9 @@ class MaliciousNode(Engine):
         self.attack = create_attack(self)
         self.aggregator_bening = self._aggregator
         self.role_handlers: dict[str, Engine] = {
-            "aggregator": AggregatorNode,
-            "trainer": TrainerNode,
-            "server": ServerNode,
+            Role.AGGREGATOR: AggregatorNode,
+            Role.TRAINER: TrainerNode,
+            Role.SERVER: ServerNode,
         }
     async def _extended_learning_cycle(self):
         try:
