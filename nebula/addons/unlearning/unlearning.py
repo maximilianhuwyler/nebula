@@ -49,6 +49,7 @@ class ParameterResetting(UnlearningCycleExtension):
         # Set the model training step to avoid immidiate retraining after resetting
         self.previous_training_step = self.model.training_step
         self.model.training_step = self.model.training_step_zero_loss
+        logging.info(f"Model parameters and learning rate reset to initial values.")
 
     def after_training(self):
         # Reset the model training step to its previous value
@@ -94,17 +95,21 @@ class GradientAscent(UnlearningCycleExtension):
         # Set the training gradient clip value and remember the previous one
         self.previous_gradient_clip_val = self.trainer.train_gradient_clip_val
         self.trainer.train_gradient_clip_val = self.gradient_clip_val
+        logging.info(f"Setting Gradient Clip Value: {self.gradient_clip_val}")
 
     def after_training(self):
         # Reset the model training step and gradient clip value to their previous values
         self.model.training_step = self.previous_training_step
         self.trainer.train_gradient_clip_val = self.previous_gradient_clip_val
+        logging.info(f"Resetting Gradient Clip Value to previous value.")
     
     def before_publishing(self):
         # Set the model weight for update distribution and remember the previous weight
         self.previous_weight = self.datamodule.model_weight
         self.datamodule.model_weight *= self.weight_factor
+        logging.info(f"Multiplying model weight for update distribution by {self.weight_factor}.")
 
     def after_publishing(self):
         # Reset the model weight to its previous value
         self.datamodule.model_weight = self.previous_weight
+        logging.info(f"Resetting model weight to previous value.")

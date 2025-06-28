@@ -43,6 +43,7 @@ class KnowledgeDistillation(RetrainingCycleExtension):
     def setup(self):
         # Initialize the teacher model as a deep copy of the current model.
         self.teacher = deepcopy(self.model)
+        logging.info(f"Teacher model for Knowledge Distillation is set up.")
     
     def is_active(self, round):
         # The knowledge distillation is activated during the retraining phase
@@ -59,6 +60,7 @@ class KnowledgeDistillation(RetrainingCycleExtension):
         self.model.teacher = deepcopy(self.teacher)
         self.previous_training_step = self.model.training_step
         self.model.training_step = self.model.training_step_knowledge_distillation
+        logging.info(f"Alpha: {self.alpha}, Temperature: {self.temperature}")
 
     def after_training(self):
         # Reset the model training step to its previous value and delete the teacher
@@ -67,3 +69,4 @@ class KnowledgeDistillation(RetrainingCycleExtension):
         del self.model.alpha
         del self.model.temperature
         del self.model.teacher
+        logging.info("Resetting Knowledge Distillation parameters of student model.")

@@ -72,13 +72,13 @@ class LearningCycleExtensionManager:
             in the round.
         """
         if self.is_unlearning_node:
-            logging.info(f"Removing itself from expected nodes") # MHTODO remove
+            logging.info(f"Removing itself from expected nodes")
             expected_nodes.discard(self.addr)
         for addr, conn in self.cm.connections.items():
             node_id = int(getattr(conn, "id", None))
             if node_id in self.unlearning_nodes:
                 expected_nodes.discard(addr)
-                logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes") # MHTODO remove
+                logging.info(f"Removing unlearning node {node_id} with address {addr} from expected nodes")
 
     def configure_round(
             self,
@@ -107,15 +107,17 @@ class LearningCycleExtensionManager:
 
         # Set the active extension based on the current round
         if self.unlearning_extension.is_active(round):
-            logging.info(f"Unlearning extension is active for round {round}") #MHTODO remove
+            logging.info(f"Unlearning extension is active for round {round}")
             self.active_extension = self.unlearning_extension
         elif self.retraining_extension.is_active(round):
-            logging.info(f"Retraining extension is active for round {round}") #MHTODO remove
+            logging.info(f"Retraining extension is active for round {round}")
             self.active_extension = self.retraining_extension
         else:
-            logging.info(f"Normal extension is active for round {round}") #MHTODO remove
+            logging.info(f"Normal extension is active for round {round}")
             # If no unlearning or retraining is active, use the default learning cycle extension
             self.active_extension = LearningCycleExtension()
+
+        logging.info(f"Node itself is in a {'active' if self.addr in expected_nodes else 'passive'} state.")
 
         # Determine the node state based on whether an update from the node is expected
         return NodeState.ACTIVE if self.addr in expected_nodes else NodeState.PASSIVE
